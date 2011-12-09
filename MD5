@@ -1,4 +1,4 @@
-5c43ad9f6edd2df395b8994e74b54126 *DESCRIPTION
+79e626891006bf46f77fb0648a0872b8 *DESCRIPTION
 b23faae98de8417fc542c9b87e090671 *NAMESPACE
 707b33afa7ab1b05d8a043f492280eff *R/OP.R
 e313a4ba6c57d83825c9e6476582a362 *R/bounds.R
@@ -6,12 +6,12 @@ b471d6527fbd56d832b9897b2a7c5695 *R/constraints.R
 8fbf5ae8536baf0aae40615b8a632764 *R/objective.R
 c6822e697765af8ba15cc218970ce409 *R/roi.R
 9d3cdcdf7f0443b0f4b6b6c7398bcb19 *R/sanitychecks.R
-76f386c7ed622c6a085d79414d9a9361 *R/solution.R
-249f514b066b6f766ea95d4b0a7993f3 *R/solver.R
+2d9bcf668cde49045a55fd81b1de09f3 *R/solution.R
+59447e850f8291eeb84155bd16675bdc *R/solver.R
 aafc521c69ea245ef7c90ab694737f9a *R/status_codes.R
 3a9ab58dfa25b428c556969959629eee *R/types.R
 d931dec53b1313520a1ad14927ed90b3 *R/utilities.R
-e4abb3e583d553db30c93e2faf9645f4 *R/zzz.R
+edc049fa13a09fc35683fa4762a442dc *R/zzz.R
 819712526995620a3c927619e7213cc5 *man/L-sub-constraint.Rd
 46d8a518fa63afe4aadc89214c7ec87a *man/L-sub-objective.Rd
 99d98c8b29cc2a9ea8d9a6be39de23fa *man/OP.Rd
