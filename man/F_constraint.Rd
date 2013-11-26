@@ -1,0 +1,36 @@
+\name{F_constraint}
+\alias{F_constraint}
+\title{Function Constraints}
+\usage{
+  F_constraint(F, dir, rhs)
+}
+\arguments{
+  \item{F}{a \code{function} or a list of \code{function}s
+  of length \eqn{m}. Each \code{function} takes \eqn{n}
+  parameters as input and must return a skalar. Thus,
+  \eqn{n} is the number of objective variables and \eqn{m}
+  is the number of constraints.}
+
+  \item{dir}{a character vector with the directions of the
+  constraints. Each element must be one of \code{"<"},
+  \code{"<="}, \code{">"}, \code{">="}, \code{"=="} or
+  \code{"!="}.}
+
+  \item{rhs}{a numeric vector with the right hand side of
+  the constraints.}
+}
+\value{
+  an object of class \code{"F_constraint"} which inherits
+  from \code{"constraint"}.
+}
+\description{
+  Function (or generally speaking nonlinear) constraints
+  are typically of the form \eqn{f(x) \leq b}. \eqn{f()} is
+  a well-defined R function taking the objective variables
+  \eqn{x} (typically a numeric vector) as arguments.
+  \eqn{b} is called the right hand side of the constraints.
+}
+\author{
+  Stefan Theussl
+}
+

@@ -1,0 +1,20 @@
+\name{length.L_constraint}
+\alias{length.L_constraint}
+\title{Linear Constraints}
+\usage{
+  \method{length}{L_constraint} (x)
+}
+\arguments{
+  \item{x}{constraints object.}
+}
+\value{
+  an integer.
+}
+\description{
+  Get the number of constraints from a corresponding ROI
+  object.
+}
+\author{
+  Stefan Theussl
+}
+

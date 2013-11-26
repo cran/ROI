@@ -1,0 +1,24 @@
+\name{G}
+\alias{G}
+\title{Extract Gradient information}
+\usage{
+  G(x, ...)
+}
+\arguments{
+  \item{x}{an object used to select the method.}
+
+  \item{\ldots}{further arguments passed down to the
+  \code{\link[numDeriv]{grad}()} function for calculating
+  gradients (only for \code{"F_objective"}).}
+}
+\value{
+  a \code{"function"}.
+}
+\description{
+  Extract the gradient from its argument (typically a ROI
+  object of class \code{"objective"}).
+}
+\author{
+  Stefan Theussl
+}
+

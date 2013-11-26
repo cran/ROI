@@ -2,7 +2,7 @@
 ## Package: ROI
 ## File:    OP.R
 ## Author:  Stefan Theussl
-## Changed: 2011-10-05
+## Changed: 2013-11-25
 ################################################################################
 
 
@@ -37,17 +37,30 @@
 ##' @author Stefan Theussl
 ##' @export
 OP <- function( objective, constraints = NULL, types = NULL, bounds = NULL,
-  maximum = FALSE ) {
-    structure(list(objective = as.objective(objective),
-                   constraints = as.constraint(constraints),
-                   bounds = bounds,
-                   types = types,
-                   maximum = maximum), class = "OP")
+  maximum = FALSE )
+    .check_OP_for_sanity( structure(list(objective = as.objective(objective),
+                                         constraints = as.constraint(constraints),
+                                         bounds = bounds,
+                                         types = as.types(types),
+                                         maximum = as.logical(maximum)), class = "OP")
+                         )
+
+.check_OP_for_sanity <- function( x ){
+    if( length(objective(x)) != dim(constraints(x))[2] )
+        stop( "dimensions of 'objective' and 'constraints' not conformable." )
+    len_types <- length(types)
+    if( len_types && (len_types > 1L) )
+        if( length(objective(x)) != len_types )
+            stop( "dimensions of 'objective' and 'types' not conformable." )
+    if( !is.null(bounds(x)) )
+        if( length(objective(x)) != bounds(x)$nobj )
+            stop( "dimensions of 'objective' and 'bounds' not conformable." )
+    x
 }
 
 ## FIXME: also consider objective function
 
-##' @nord
+##' @noRd
 ##' @method print OP
 ##' @S3method print OP
 print.OP <- function(x, ...){
@@ -74,11 +87,11 @@ print.OP <- function(x, ...){
         ## calculate if types have to be written to stdout
     writetypes <- FALSE
     if( !is.null(types(x)) )
-        if( any(types(x) %in% ROI:::available_types()[2:3]) )
+        if( any(types(x) %in% available_types()[2:3]) )
             writetypes <- TRUE
     if( writetypes ){
         writeLines( "" )
-        writeLines( "Some of the objective variables are of type linear or binary." )
+        writeLines( "Some of the objective variables are of type binary or integer." )
     }
 }
 
@@ -99,19 +112,19 @@ print.OP <- function(x, ...){
 as.OP <- function(x)
     UseMethod("as.OP")
 
-##' @nord
+##' @noRd
 ##' @method as.OP OP
 ##' @S3method as.OP OP
 as.OP.OP <- identity
 
-##' @nord
+##' @noRd
 ##' @method as.OP numeric
 ##' @S3method as.OP numeric
 as.OP.numeric <- function(x){
     OP( objective = x, constraints = NULL, bounds = NULL, types = NULL,
         maximum = FALSE )
 
-##' @nord
+##' @noRd
 ##' @method as.OP default
 ##' @S3method as.OP default
 as.OP.default <- function(x, ...)

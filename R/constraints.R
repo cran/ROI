@@ -2,10 +2,11 @@
 ## Package: ROI
 ## File:    constraints.R
 ## Author:  Stefan Theussl
-## Changed: 2011-10-04
+## Changed: 2013-11-25
 ################################################################################
 
-
+## NOTE: probably support "range" constraints in order to improve efficiency
+## (lhs ~ f(x) ~ rhs)
 
 ################################################################################
 ## 'constraints' helper functions
@@ -72,7 +73,7 @@ constraints.OP <- function( x )
 'constraints<-' <- function( x, value )
     UseMethod("constraints<-")
 
-##' @nord
+##' @noRd
 ##' @S3method constraints<- OP
 'constraints<-.OP' <- function( x, value ) {
     ## if 'empty' constraints are given (NULL) then we assume it's and
@@ -147,19 +148,19 @@ as.L_constraint <- function(x, ...)
     UseMethod("as.L_constraint")
 
 
-##' @nord
+##' @noRd
 ##' @method as.L_constraint L_constraint
 ##' @S3method as.L_constraint L_constraint
 as.L_constraint.L_constraint <- function( x, ... )
     identity(x)
 
-##' @nord
+##' @noRd
 ##' @method as.L_constraint numeric
 ##' @S3method as.L_constraint numeric
 as.L_constraint.numeric <- function( x, ... )
     L_constraint( L = x, dir = ">=", rhs = 0 )
 
-##' @nord
+##' @noRd
 ##' @method as.L_constraint list
 ##' @S3method as.L_constraint list
 as.L_constraint.list <- function( x, ... ){
@@ -208,7 +209,7 @@ rbind.L_constraint <- function( ..., recursive = FALSE ){
 
 ## FIXME: connection to rbind documentation
 
-##' @nord
+##' @noRd
 ##' @method c L_constraint
 ##' @S3method c L_constraint
 c.L_constraint <- function( ..., recursive = FALSE )
@@ -229,21 +230,25 @@ length.L_constraint <- function( x )
 as.L_term <- function( x, ... )
     UseMethod("as.L_term")
 
-##' @nord
+##' @noRd
 ##' @S3method as.L_term numeric
 as.L_term.numeric <- function( x, ... )
     as.simple_triplet_matrix( matrix(x, nrow = 1L) )
 
-##' @nord
+##' @noRd
 ##' @S3method as.L_term matrix
 as.L_term.matrix <- function( x, ... )
     as.simple_triplet_matrix(x)
 
-##' @nord
+##' @noRd
 ##' @S3method as.L_term simple_triplet_matrix
 as.L_term.simple_triplet_matrix <- function( x, ... )
     x
 
+##' @noRd
+##' @S3method as.L_term NULL
+as.L_term.NULL <- function( x, ... )
+    x
 
 
 ################################################################################
@@ -317,12 +322,12 @@ Q_constraint <- function(Q, L, dir, rhs){
 as.Q_constraint <- function( x )
     UseMethod("as.Q_constraint")
 
-##' @nord
+##' @noRd
 ##' S3method as.Q_constraint Q_constraint
 as.Q_constraint.Q_constraint <-
     identity
 
-##' @nord
+##' @noRd
 ##' S3method as.Q_constraint list
 as.Q_constraint.list <- function( x ){
     names(x) <- c("Q", "L", "dir", "rhs")
@@ -362,22 +367,22 @@ length.Q_constraint <- function(x)
 as.Q_term <- function(x, ...)
     UseMethod( "as.Q_term" )
 
-##' @nord
+##' @noRd
 ##' @S3method as.Q_term list
 as.Q_term.list <- function( x )
     lapply( x, function(x) if( !is.null(x) ) as.simple_triplet_matrix(x) )
 
-##' @nord
+##' @noRd
 ##' @S3method as.Q_term numeric
 as.Q_term.numeric <- function( x )
     list( as.simple_triplet_matrix( matrix(x)) )
 
-##' @nord
+##' @noRd
 ##' @S3method as.Q_term matrix
 as.Q_term.matrix <- function( x )
     list( as.simple_triplet_matrix(x) )
 
-##' @nord
+##' @noRd
 ##' @S3method as.Q_term simple_triplet_matrix
 as.Q_term.simple_triplet_matrix <- function( x )
     list( x )
@@ -389,12 +394,32 @@ as.Q_term.simple_triplet_matrix <- function( x )
 ##}
 
 
+## FIXME: Function constraints still incomplete and untested
 
 ################################################################################
 ## Function constraints (class 'F_constraint')
 ## list of constraints of the form f(x) ~ b
 ################################################################################
 
+##' Function (or generally speaking nonlinear) constraints are
+##' typically of the form \eqn{f(x) \leq b}. \eqn{f()} is a
+##' well-defined R function taking the objective variables \eqn{x}
+##' (typically a numeric vector) as arguments. \eqn{b} is called the
+##' right hand side of the constraints.
+##'
+##' @title Function Constraints
+##' @param F a \code{function} or a list of \code{function}s of length
+##' \eqn{m}. Each \code{function} takes \eqn{n} parameters as input
+##' and must return a skalar. Thus, \eqn{n} is the number of objective
+##' variables and \eqn{m} is the number of constraints.
+##' @param dir a character vector with the directions of the
+##' constraints. Each element must be one of \code{"<"}, \code{"<="},
+##' \code{">"}, \code{">="}, \code{"=="} or \code{"!="}.
+##' @param rhs a numeric vector with the right hand side of the constraints.
+##' @return an object of class \code{"F_constraint"} which inherits
+##' from \code{"constraint"}.
+##' @author Stefan Theussl
+##' @export
 F_constraint <- function(F, dir, rhs){
     F     <- as.F_term( F )
     stopifnot( row_sense_is_feasible(dir) )
@@ -411,7 +436,7 @@ F_constraint <- function(F, dir, rhs){
               class = c("F_constraint", "constraint"))
 }
 
-## FIXME: F_constraint methods
+## FIXME: there are still F_constraint methods to implement
 as.F_constraint <- function(x, ...)
     UseMethod("as.F_constraint")
 
@@ -434,7 +459,7 @@ as.F_term.list <- function(x)
 as.rhs <- function(x, ...)
     UseMethod("as.rhs")
 
-##' @nord
+##' @noRd
 ##' @S3method as.rhs numeric
 as.rhs.numeric <- function( x, ... )
     x
@@ -449,28 +474,28 @@ as.rhs.numeric <- function( x, ... )
 as.constraint <- function( x )
     UseMethod("as.constraint")
 
-##' @nord
+##' @noRd
 ##' @method as.constraint NULL
 ##' @S3method as.constraint NULL
 as.constraint.NULL <- identity
 
 
-##' @nord
+##' @noRd
 ##' @S3method as.constraint L_constraint
 as.constraint.L_constraint <-
     identity
 
-##' @nord
+##' @noRd
 ##' @S3method as.constraint Q_constraint
 as.constraint.Q_constraint <-
     identity
 
-##' @nord
+##' @noRd
 ##' @S3method as.constraint F_constraint
 as.constraint.F_constraint <-
     identity
 
-##' @nord
+##' @noRd
 ##' @method print constraint
 ##' @S3method print constraint
 print.constraint <- function( x, ... ){
@@ -487,3 +512,19 @@ print.constraint <- function( x, ... ){
 
     invisible(x)
 }
+
+##' @noRd
+##' @S3method dim constraint
+dim.constraint <- function( x ){
+    ## FIXME: we should actually save both dimensions in constraint object
+    out <- if( inherits(x, "L_constraint") )
+        c( length(x), ncol(x$L))
+    else if( inherits(x, "Q_constraint") )
+        c( length(x), unique(unlist(lapply( x$Q, dim ))) )
+    else if( inherits(x, "F_constraint") ){
+        warning( "Not implemented." )
+        NULL
+    }
+    out
+}
+

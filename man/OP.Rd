@@ -1,33 +1,49 @@
 \name{OP}
 \alias{OP}
 \title{Optimization Problem Constructor}
-\usage{OP(objective, constraints, types, bounds, maximum=FALSE)
+\usage{
+  OP(objective, constraints = NULL, types = NULL,
+    bounds = NULL, maximum = FALSE)
 }
-\description{Optimization problem constructor}
-\value{A list containing the optimal solution, with the following
-components.
-\item{solution}{the vector of optimal coefficients}
-\item{objval}{the value of the objective function at the optimum}
-\item{status}{an integer with status information about the
-solution returned: 0 if the optimal solution was found, a non-zero
-value otherwise}
-\item{msg}{the status code and additional
-information about the solution provided by the solver.}}
-\author{Stefan Theussl}
-\arguments{\item{objective}{an object inheriting from class \code{"objective"}.}
-\item{constraints}{an object inheriting from class \code{"constraints"}.}
-\item{bounds}{\code{NULL} (default) or a list with elements
-\code{upper} and \code{lower} containing the indices and
-corresponding bounds of the objective variables.  The default for
-each variable is a bound between 0 and \code{Inf}.}
-\item{types}{a character vector giving the types of the objective
-variables, with \code{"C"}, \code{"I"}, and \code{"B"}
-corresponding to continuous, integer, and binary, respectively, or
-\code{NULL} (default), taken as all-continuous.  Recycled as
-needed.}
-\item{maximum}{a logical giving the direction of the
-optimization. \code{TRUE} means that the objective is to maximize
-the objective function, \code{FALSE} (default) means to minimize
-it.}
+\arguments{
+  \item{objective}{an object inheriting from class
+  \code{"objective"}.}
+
+  \item{constraints}{an object inheriting from class
+  \code{"constraints"}.}
+
+  \item{bounds}{\code{NULL} (default) or a list with
+  elements \code{upper} and \code{lower} containing the
+  indices and corresponding bounds of the objective
+  variables.  The default for each variable is a bound
+  between 0 and \code{Inf}.}
+
+  \item{types}{a character vector giving the types of the
+  objective variables, with \code{"C"}, \code{"I"}, and
+  \code{"B"} corresponding to continuous, integer, and
+  binary, respectively, or \code{NULL} (default), taken as
+  all-continuous.  Recycled as needed.}
+
+  \item{maximum}{a logical giving the direction of the
+  optimization. \code{TRUE} means that the objective is to
+  maximize the objective function, \code{FALSE} (default)
+  means to minimize it.}
+}
+\value{
+  A list containing the optimal solution, with the
+  following components. \item{solution}{the vector of
+  optimal coefficients} \item{objval}{the value of the
+  objective function at the optimum} \item{status}{an
+  integer with status information about the solution
+  returned: 0 if the optimal solution was found, a non-zero
+  value otherwise} \item{msg}{the status code and
+  additional information about the solution provided by the
+  solver.}
+}
+\description{
+  Optimization problem constructor
+}
+\author{
+  Stefan Theussl
 }
 

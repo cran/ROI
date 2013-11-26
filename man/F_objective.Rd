@@ -1,0 +1,26 @@
+\name{F_objective}
+\alias{F_objective}
+\title{General (Nonlinear) Objective Function}
+\usage{
+  F_objective(F, n, G = NULL)
+}
+\arguments{
+  \item{F}{an R \code{"function"} taking a numeric vector
+  \code{x} of length \eqn{n} as argument.}
+
+  \item{G}{an R \code{"function"} returning the gradient at
+  \code{x}.}
+
+  \item{n}{the number of objective variables.}
+}
+\value{
+  an object of class \code{"F_objective"} which inherits
+  from \code{"objective"}.
+}
+\description{
+  General objective function \eqn{f(x)}to be optimized.
+}
+\author{
+  Stefan Theussl
+}
+

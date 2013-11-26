@@ -1,0 +1,20 @@
+\name{constraints.OP}
+\alias{constraints.OP}
+\title{Extract constraints}
+\usage{
+  \method{constraints}{OP} (x)
+}
+\arguments{
+  \item{x}{an object of class \code{"OP"}.}
+}
+\value{
+  an object inheriting from class \code{"constraints"}.
+}
+\description{
+  Extract constraints from ROI objects of class \code{"OP"}
+  and return them.
+}
+\author{
+  Stefan Theussl
+}
+

@@ -1,3 +1,4 @@
+## available types. the first element is the standard type
 available_types <- function( )
   c( "C", "I", "B" )
 
@@ -16,9 +17,24 @@ available_types <- function( )
 types <- function( x )
   UseMethod("types")
 
-##' @nord
+##' @noRd
 ##' @method types OP
 ##' @S3method types OP
 types.OP <- function( x )
   x$types
 
+as.types <- function( x )
+    UseMethod("as.types")
+
+##' @noRd
+##' @S3method as.types character
+as.types.character <- function( x ){
+    if( !all(x %in% available_types()) ){
+        stop("Invalid MIP variable types.")
+    }
+    x
+}
+
+##' @noRd
+##' @S3method as.types NULL
+as.types.NULL <- identity
