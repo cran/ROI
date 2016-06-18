@@ -25,6 +25,7 @@
 ##' optimization. \code{TRUE} means that the objective is to maximize
 ##' the objective function, \code{FALSE} (default) means to minimize
 ##' it.
+##' @param x an R object.
 ##' @return A list containing the optimal solution, with the following
 ##' components.
 ##' \item{solution}{the vector of optimal coefficients}
@@ -34,35 +35,80 @@
 ##' value otherwise}
 ##' \item{msg}{the status code and additional
 ##' information about the solution provided by the solver.}
+##' @examples
+##' ## Simple linear program.
+##' ## maximize:   2 x_1 + 4 x_2 + 3 x_3
+##' ## subject to: 3 x_1 + 4 x_2 + 2 x_3 <= 60
+##' ##             2 x_1 +   x_2 +   x_3 <= 40
+##' ##               x_1 + 3 x_2 + 2 x_3 <= 80
+##' ##               x_1, x_2, x_3 are non-negative real numbers
+##'
+##' LP <- OP( c(2, 4, 3),
+##'           L_constraint(L = matrix(c(3, 2, 1, 4, 1, 3, 2, 2, 2), nrow = 3),
+##'                        dir = c("<=", "<=", "<="),
+##'                        rhs = c(60, 40, 80)),
+##'           max = TRUE )
+##' LP
+##'
+##' ## Simple quadratic program.
+##' ## minimize: - 5 x_2 + 1/2 (x_1^2 + x_2^2 + x_3^2)
+##' ## subject to: -4 x_1 - 3 x_2       >= -8
+##' ##              2 x_1 +   x_2       >=  2
+##' ##                    - 2 x_2 + x_3 >=  0
+##'
+##' QP <- OP( Q_objective (Q = diag(1, 3), L = c(0, -5, 0)),
+##'           L_constraint(L = matrix(c(-4,-3,0,2,1,0,0,-2,1),
+##'                                   ncol = 3, byrow = TRUE),
+##'                        dir = rep(">=", 3),
+##'                        rhs = c(-8,2,0)) )
+##' QP
 ##' @author Stefan Theussl
 ##' @export
 OP <- function( objective, constraints = NULL, types = NULL, bounds = NULL,
-  maximum = FALSE )
-    .check_OP_for_sanity( structure(list(objective = as.objective(objective),
-                                         constraints = as.constraint(constraints),
-                                         bounds = bounds,
-                                         types = as.types(types),
-                                         maximum = as.logical(maximum)), class = "OP")
-                         )
+                maximum = FALSE ) {
+    objective <- as.objective(objective)
+    constraints <- as.constraint(constraints)
+    types <- as.types(types)
+    maximum <- as.logical(maximum)
+    ## TODO: as.bounds
+    ## check objective: the length of the objective defines the length of the constraints
 
-.check_OP_for_sanity <- function( x ){
-    if( length(objective(x)) != dim(constraints(x))[2] )
-        stop( "dimensions of 'objective' and 'constraints' not conformable." )
-    len_types <- length(types)
+    ## check constraints
+    if ( (!is.null(constraints)) & (!is.F_constraint(constraints)) ) {
+        if ( length(objective) != ncol(constraints) )
+            stop( "dimensions of 'objective' and 'constraints' not conformable." )
+    }
+    ## check types
+    if ( !is.null(types) ) {
+        if ( length(objective) != length(types) )
+            stop( "dimensions of 'objective' and 'types' not conformable." )
+    }
+    ## check bounds
+    structure(list(objective = objective, constraints = constraints, bounds = bounds,
+                   types = types, maximum = maximum), class = "OP")
+}
+
+.check_OP_for_sanity <- function( x ) {
+    ## FIXME: FS
+    ## for F_constraints we shouldn't check the dimension
+    ## but how it is checked now can still go wrong!
+    if ( !is.F_constraint( constraints(x) ) ) {
+        if( length( objective(x) ) !=  dim(constraints(x))[2] )
+            stop( "dimensions of 'objective' and 'constraints' not conformable." )
+    }
+    len_types <- length( types(x) )
     if( len_types && (len_types > 1L) )
         if( length(objective(x)) != len_types )
             stop( "dimensions of 'objective' and 'types' not conformable." )
-    if( !is.null(bounds(x)) )
-        if( length(objective(x)) != bounds(x)$nobj )
-            stop( "dimensions of 'objective' and 'bounds' not conformable." )
+    ## TODO: FS
+    ## if( !is.null(bounds(x)) )
+    ##    if( length(objective(x)) != bounds(x)$nobj )
+    ##        stop( "dimensions of 'objective' and 'bounds' not conformable." )
     x
 }
 
-## FIXME: also consider objective function
-
 ##' @noRd
-##' @method print OP
-##' @S3method print OP
+##' @export
 print.OP <- function(x, ...){
     writeLines( "ROI Optimization Problem:\n" )
     ## objective
@@ -95,42 +141,48 @@ print.OP <- function(x, ...){
     }
 }
 
-##' Coerces objects of type \code{"OP"}.
-##'
-##' Objects from the following classes can be coerced to \code{"OP"}:
-##' \code{"NULL"}, and \code{"numeric"}. The former represents an
-##' empty optimization problem, the latter an unconstrained linear
-##' programming problem where the elements of a \code{"numeric"}
-##' vector \eqn{c} are treated as being objective variable
-##' coefficients in \eqn{c^\top x}).  inherits from class
-##' \code{"objective"}.
-##' @title Optimization Problem Object
-##' @param x an R object.
-##' @return an object of class \code{"OP"}.
-##' @author Stefan Theussl
+##  Coerces objects of type \code{"OP"}.
+## 
+##  Objects from the following classes can be coerced to \code{"OP"}:
+##  \code{"numeric"}. This yields an unconstrained linear
+##  programming problem where the elements of a \code{"numeric"}
+##  vector \eqn{c} are treated as being objective variable
+##  coefficients in \eqn{c^\top x}.
+##  @title Optimization Problem Object
+##  @param x an R object.
+##  @return an object of class \code{"OP"}.
+##  @author Stefan Theussl
+##' @rdname OP
 ##' @export
 as.OP <- function(x)
     UseMethod("as.OP")
 
 ##' @noRd
-##' @method as.OP OP
-##' @S3method as.OP OP
+##' @export
 as.OP.OP <- identity
 
 ##' @noRd
-##' @method as.OP numeric
-##' @S3method as.OP numeric
+##' @export
 as.OP.numeric <- function(x){
     OP( objective = x, constraints = NULL, bounds = NULL, types = NULL,
         maximum = FALSE )
+}
+
+## @noRd
+## @export
+## as.OP.default <- function(x, ...){
+##    stop("Method not implemented.")
+##}
 
 ##' @noRd
-##' @method as.OP default
-##' @S3method as.OP default
-as.OP.default <- function(x, ...)
-    stop("Method not implemented.")
-
+## since available_objective_classes are ordered I only need to take the first!
+get_objective_class <- function(x) {
+    b <- available_objective_classes() %in% class(x$objective)
+    names(available_objective_classes())[b][1]
 }
+
+## TODO:
+## get_constraint_class <- function(x)
 
 ## OP_class <- function( x ){
 ##     x <- as.OP( x )
@@ -154,16 +206,45 @@ as.OP.default <- function(x, ...)
 
 ## NOTE: objective(x) returns something which inherits from function and class(x).
 ##       this is why we need to derive the type of objective by taking the 2nd element.
+## NOTE (#FS): Did run into an error since objective from F_function returns and object of type function
 OP_signature <- function( x ){
     x <- as.OP( x )
-    uniq_types <- if( is.null(types(x)) )
-        available_types()[1]
-    else paste(unique(types(x)), collapse = "")
-    ROI_make_signature( objective = names( available_objective_classes() )[ available_objective_classes() %in% class(objective(x))[2] ],
-                        constraints = names( available_constraint_classes() )[ available_constraint_classes() %in% class(constraints(x))[1] ],
-                        types = uniq_types,
-                        bounds  = !is.null(bounds(x)),
-                        maximum = x$maximum
-                       )
+    uniq_types <- if ( is.null(types(x)) ) { available_types()[1]
+                } else { paste(unique(types(x)), collapse = "") }
+
+    bound_mapping <- setNames(c("CV", "C", "V", "X"), c("bound", "C_bound", "V_bound", "NULL"))
+    boun <- bound_mapping[class(bounds(x))[1]]
+
+    constr <- names( available_constraint_classes() )[ available_constraint_classes() %in% class(constraints(x))[1] ]
+
+    if ( is.null(bounds(x)$cones) ) {
+        cone_types <- "free"
+    } else {
+        cone_types <- available_cone_types()[ available_cone_types() %in% names(bounds(x)$cones) ]
+    }
+
+    .ROI_plugin_make_signature( objective = get_objective_class(x),
+                                constraints = constr,
+                                types = uniq_types,
+                                bounds  = boun,
+                                cones = cone_types,
+                                maximum = x$maximum )
 }
 
+#  -----------------------------------------------------------
+#  OP_applicable_solver
+#  NOTE: is now named ROI_applicable_solvers
+#  ====================
+#  @title Applicable Solver
+#  @description
+#    Takes an object of class \code{"OP"} (optimization problem)
+#    and returns a character vector giving the names of all available
+#    and applicable solver.
+#  @param x an object of class \code{"OP"}
+#  @return A a character vector giving the giving the names of all available
+#    and applicable solver
+#  @export
+#  -----------------------------------------------------------
+OP_applicable_solver <- function( x ) {
+    unname( names(get_solver_methods( OP_signature(x) )) )
+}

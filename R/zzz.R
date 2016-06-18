@@ -1,5 +1,12 @@
-##' @noRd
-##' @import registry methods
+##' ROI Options
+##'
+##' Allow the user to set and examine a variety of ROI options like the default
+##' solver or the function used to compute the gradients.
+##' @param option any options can be defined, using 'key, value' pairs.
+##'   If 'value' is missing the current set value is returned for the given 'option'.
+##'   If both are missing. all set options are returned.
+##' @param value the corresponding value to set for the given option.
+##'@export
 ROI_options <-
 local({
     options <- list()
@@ -11,6 +18,10 @@ local({
             options[[option]] <<- value
     }
 })
+
+##' @noRd
+##' @import registry methods
+NULL
 
 ## STATUS_DB
 ## create registry object containing status codes
@@ -31,9 +42,10 @@ add_solver_db_schema <- function( solver_db ){
     solver_db$set_field( "objective",   type = "character", validity_FUN = function(x) x %in% names(available_objective_classes()), is_key = TRUE)
     solver_db$set_field( "constraints", type = "character", validity_FUN = function(x) x %in% names(available_constraint_classes()), is_key = TRUE)
     for( type in available_types() )
-        solver_db$set_field( type,      type = "logical", is_key = TRUE)
-    solver_db$set_field( "bounds",      type = "logical", is_key = TRUE)
-    solver_db$set_field( "maximum",     type = "logical", is_key = TRUE)
+        solver_db$set_field( type,      type = "logical",   is_key = TRUE)
+    solver_db$set_field( "bounds",      type = "character", validity_FUN = valid_bound, is_key = TRUE)
+    solver_db$set_field( "cones",       type = "character", validity_FUN = valid_cone, is_key = TRUE)
+    solver_db$set_field( "maximum",     type = "logical",   is_key = TRUE)
     solver_db$set_field( "FUN",         type = "function" )
     solver_db
 }
@@ -47,29 +59,61 @@ cross_validate_schema <- function( args, solver_db){
 
 schema_valid <- cross_validate_schema( names(formals(OP)), solver_db )
 
+## CONTROL_DB
+## create registry object for (partial) solver control argument canonicalization
+add_control_db_schema <- function( control_db ){
+    control_db$set_field( "solver",      type = "character", is_key = TRUE )
+    control_db$set_field( "control",     type = "character", is_key = TRUE )
+    control_db$set_field( "roi_control", type = "character", alternatives = ROI_available_solver_controls() )
+    control_db
+}
+control_db <- registry( )
+control_db <- add_control_db_schema( control_db )
+
 .onLoad <- function( libname, pkgname ) {
     if( ! "ROI.plugin.nlminb" %in% ROI_registered_solvers() ){
         ## Register solver methods here.
         ## One can assign several signatures a single solver method
         ## DISABLED! see R code (solution of QP from examples.R in work not same as quadprog)
-        #solver <- "nlminb"
-        #ROI_register_solver_method( signatures = ROI_make_QP_signatures(),
+         solver <- "nlminb"
+         .ROI_plugin_register_solver_method(
+             signatures = ROI_make_NLP_FXCV_signatures(),
+             solver = solver,
+             method = getFunction( ".solve_NLP_nlminb", where = getNamespace(pkgname)) )
+         .add_nlminb_controls()
+         ## Finally, for status code canonicalization add status codes to data base
+         .add_nlminb_status_codes()
+
+
+        #.ROI_plugin_register_solver_method( signatures = ROI_make_QP_signatures(),
         #                            solver = solver,
         #                            method =
         #                            getFunction( ".solve_QP_nlminb", where = getNamespace(pkgname)) )
-        ## Finally, for status code canonicalization add status codes to data base
-        #.add_nlminb_status_codes()
     }
 
     ## SET DEFAULTS: for the time being 'ROI_NULL' for solving empty
     ## OPs is the default solver
-    ROI_options("default_solver", "ROI_NULL")
+    ROI_options( "default_solver", "auto" )
+    ## NOTE: tryCatch since numDeriv has to be installed!
+    tryCatch({ROI_options( "gradient", numDeriv::grad )}, error=function(e) NULL)
+    ROI_options("solver_selection_table", list(default = c("glpk", "ecos", "cplex", "quadprog", "nlminb"),
+                                                 LP = c("glpk", "ecos", "cplex"),
+                                                 QP = c("quadprog", "cplex", "ipop"),
+                                                 CP = c("ecos", "scs"),
+                                               MILP = c("glpk", "ecos", "cplex"),
+                                               MIQP = c("cplex"),
+                                               MICP = c("ecos"),
+                                                NLP = c("nlminb", "nloptr")))
+    return(invisible(NULL))
 }
 
-.onAttach <- function( libname, pkgname ){
+.onAttach <- function( libname, pkgname ) {
     ## Search for all solvers in same library as ROI and register found solvers
     ## implicitely be running the corresponding .onLoad() function.
-    solvers <- ROI_installed_solvers( lib.loc = libname )
+    if( Sys.getenv("_R_ROI_NO_CHECK_SOLVERS_") != "" )
+        solvers <- NULL
+    else
+        solvers <- ROI_installed_solvers( lib.loc = libname )
     lapply( solvers, function( pkgname ){ nmspc <- tryCatch(getNamespace(pkgname), error = identity)
                                           if( !inherits(nmspc, "error") ){
                                               load <- methods::getFunction( ".onLoad", where = nmspc )

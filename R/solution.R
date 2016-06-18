@@ -2,9 +2,68 @@
 ## Package: ROI
 ## File:    solution.R
 ## Author:  Stefan Theussl
-## Changed: 2011-10-05
+## Changed: 2016-05-20
 ################################################################################
 
+## ---------------------------------------------------------
+## Extract Solutions
+## =================
+## ---------------------------------------------------------
+
+##  --------------------------------------------------------
+##
+##  solution
+##  ========
+##' @title Extract Solution
+##' @description The solution can be accessed via the method \code{'solution'}.
+##' @param x an object of type \code{'OP_solution'}.
+##' @param type a character giving the name of the solution to be extracted.
+##' @return the extracted solution.
+##' @export
+solution <- function(x, type=c("primal", "dual", "aux", "psd", "msg")) {
+    type <- type[1]
+    switch(type,
+           primal = .ROI_plugin_solution_prim(x),
+           dual   = .ROI_plugin_solution_dual(x),
+           aux    = .ROI_plugin_solution_aux(x) ,
+           psd    = .ROI_plugin_solution_psd(x) ,
+           msg    = .ROI_plugin_solution_msg(x)  )
+}
+
+##' @noRd
+##' @export
+.ROI_plugin_solution_prim <- function(x) UseMethod(".ROI_plugin_solution_prim")
+.ROI_plugin_solution_prim.OP_solution <- function(x) x$solution
+
+##  @title Extract Dual Solution
+##  @description The dual solution can be accessed via the method \code{'solution_dual'}.
+##  @param x an object of type \code{'OP_solution'}.
+##  @return the extracted solution.
+##' @noRd
+##' @export
+.ROI_plugin_solution_dual <- function(x) UseMethod(".ROI_plugin_solution_dual")
+.ROI_plugin_solution_dual.OP_solution <- function(x) NA
+
+##' @noRd
+##' @export
+.ROI_plugin_solution_aux <- function(x) UseMethod(".ROI_plugin_solution_aux")
+.ROI_plugin_solution_aux.OP_solution <- function(x) NA
+
+## @title Extract Positive Semi-Definite Matrices
+## @description The matrix part of the solution from an semidefinite program can
+##   be accessed via the method \code{'solution_psd'}.
+## @param sol an object of type \code{'OP_solution'}.
+## @return the matrix part of the solution from an semidefinite program if
+##   available.
+##' @noRd
+##' @export
+.ROI_plugin_solution_psd <- function(x) UseMethod(".ROI_plugin_solution_psd")
+.ROI_plugin_solution_psd.OP_solution <- function(x) NA
+
+##' @noRd
+##' @export
+.ROI_plugin_solution_msg <- function(x) UseMethod(".ROI_plugin_solution_msg")
+.ROI_plugin_solution_msg.OP_solution <- function(x) x$message
 
 
 ################################################################################
@@ -22,21 +81,25 @@
         make_OP_solution( double(), NA_real_, 2L, solver = "ROI_NULL" )
 }
 
-make_OP_solution <- function(solution, objval, status, solver, ...)
-    structure( list(solution = solution,
-                    objval = objval,
-                    status = status),
-              meta = list(solver = solver, ...),
-              class = "OP_solution" )
-
-
-
+make_OP_solution <- function(solution, objval, status, solver, message = NULL, ...){
+    if( is.null(status$code) ) ## a status code for the solution is a necessary condition.
+        stop( sprintf("unknown solver status code. Please contact the ROI.plugin.%s maintainer.", solver) )
+    structure( list(solution = if( !status$code )
+                                   solution
+                               else
+                                   rep(NA_real_, length(solution)),
+                    objval   = ifelse( !status$code, objval, NA_real_ ),
+                    status   = status,
+                    message  = message),
+              meta  = list(solver = solver, ...),
+              class = c(sprintf("%s_solution", solver), "OP_solution") )
+}
 ################################################################################
 ## Methods on solution object
 ################################################################################
 
 ##' @noRd
-##' @S3method print OP_solution
+##' @export
 print.OP_solution <- function(x, ...){
     success <- x$status$code == 0
     if( !success ){
@@ -46,24 +109,4 @@ print.OP_solution <- function(x, ...){
         writeLines( "Optimal solution found." )
     }
     writeLines( sprintf("The objective value is: %e", x$objval) )
-}
-
-
-
-################################################################################
-## CANONICALIZER
-################################################################################
-
-canonicalize_status <- function( status, solver ){
-    msg <- get_status_message_from_db( solver, status )
-    list( code = msg$roi_code, msg = msg )
-}
-
-canonicalize_solution <- function( solution, optimum, status, solver, ... )
-{
-    status <- canonicalize_status( status, solver )
-    make_OP_solution( solution = solution,
-                      objval  = optimum,
-                      status   = status,
-                      solver   = solver, ... )
 }

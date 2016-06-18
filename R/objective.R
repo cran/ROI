@@ -46,74 +46,74 @@ objective <- function( x )
     UseMethod( "objective" )
 
 ##' @noRd
-##' @method objective default
-##' @S3method objective default
+##' @export
 objective.default <- function( x )
     as.function( x$objective )
 
-##' Coerces objects of type \code{"objective"}.
-##'
-##' @title Objective Function Utilities
-##' @param x an R object.
-##' @return an object of class \code{"objective"}.
-##' @author Stefan Theussl
+## Coerces objects of type \code{"objective"}.
+##
+## @title Objective Function Utilities
+## @param x an R object.
+## @return an object of class \code{"objective"}.
+## @author Stefan Theussl
+##' @rdname objective
 ##' @export
 as.objective <- function( x )
   UseMethod("as.objective")
 
 ##' @noRd
-##' @method as.objective default
-##' @S3method as.objective default
+##' @export
 as.objective.function <- function( x ){
     if( inherits(x, "Q_objective", which = TRUE) == 2 )
         return( as.Q_objective( x ) )
     if( inherits(x, "L_objective", which = TRUE) == 2 )
         return( as.L_objective( x ) )
-    stop("Not implemented.")
+    if( inherits(x, "F_objective", which = TRUE) == 2 )
+        return( as.F_objective( x ) )
+    stop("'x' must be of type L_objective, Q_objective or F_objective, was ", shQuote(typeof(x)))
 }
 
 ##' @noRd
-##' @method as.objective default
-##' @S3method as.objective default
-as.objective.default <- function( x )
-  as.L_objective( x )
+##' @export
+as.objective.default <- function( x ) as.L_objective( x )
 
 ##' @noRd
-##' @method as.objective objective
-##' @S3method as.objective objective
-as.objective.objective <-
-    identity
+##' @export
+as.objective.objective <- identity
 
 ##' @noRd
-##' @method length objective
-##' @S3method length objective
-length.objective <- function( x )
-    attr( as.objective(x), "nobj" )
+##' @export
+length.objective <- function( x ) attr( as.objective(x), "nobj" )
 
 ##' @noRd
-##' @method terms function
-##' @S3method terms function
+##' @export
+`[.L_objective` <- function(x, i) {
+    as.numeric(as.matrix(terms(x)$L[1, i]))
+}
+
+str_default <- function(object, ...) getNamespace("utils")$str.default(object, ...)
+
+##  NOTE: Since we override the length of the objective the str function which 
+##        relies on length, doesn't work anymore.
+##' @noRd
+##' @export
+str.objective <- function(object, ...) {
+    attributes(object)$nobj <- length(unclass(object))
+    str_default(object)
+}
+
+
+##' @noRd
+##' @export
 terms.function <- function( x, ... ){
     if( inherits(x, "L_objective") )
         return( terms(as.L_objective(x)) )
     if( inherits(x, "Q_objective") )
         return( terms(as.Q_objective(x)) )
+    if( inherits(x, "F_objective") )
+        return( terms(as.F_objective(x)) )
     NA
 }
-
-##' @noRd
-##' @method terms L_objective
-##' @S3method terms L_objective
-terms.L_objective <- function( x, ... )
-  list( L = x$L )
-
-##' @noRd
-##' @method terms Q_objective
-##' @S3method terms Q_objective
-terms.Q_objective <- function( x, ... )
-  list( Q = x$Q, L = x$L )
-
-
 
 
 ###############################################################
@@ -123,7 +123,7 @@ terms.Q_objective <- function( x, ... )
 ## Linear objective function (class 'L_objective')
 ## of type c^\top x, where c is a vector of coefficients
 
-##' A linear objective function is typically of the form \eqn{c^\top
+##' A linear objective function is typically of the form \deqn{c^\top
 ##' x} where \eqn{c} is a (sparse) vector of coefficients to the
 ##' \eqn{n} objective variables \eqn{x}.
 ##'
@@ -132,77 +132,83 @@ terms.Q_objective <- function( x, ... )
 ##' \code{"simple_triplet_matrix"} (or coercible to such) with dimension \eqn{1 \times n},
 ##' where \eqn{n} is the number of objective variables. Names will be
 ##' preserved and used e.g., in the print method.
+##' @param x an R object.
+##' @param names an optional character vector giving the names of \eqn{x}
+##'        (column names of \eqn{L}).
 ##' @return an object of class \code{"L_objective"} which inherits
 ##' from  \code{"Q_objective"} and \code{"objective"}.
 ##' @author Stefan Theussl
 ##' @export
-L_objective <- function( L ) {
-    obj <- Q_objective( Q = NULL, L = L )
+L_objective <- function( L, names = NULL ) {
+    obj <- Q_objective( Q = NULL, L = L, names=names )
     class( obj ) <- c( "L_objective", class(obj) )
     obj
 }
 
 ##' @noRd
-##' @method as.function L_objective
-##' @S3method as.function L_objective
+##' @export
 as.function.L_objective <- function( x, ... ){
   L <- terms(x)[["L"]]
+  names <- terms(x)[["names"]]
   out <- function(x)
       structure( c(slam::tcrossprod_simple_triplet_matrix(L, t(x))), names = rownames(L) )
   class(out) <- c(class(out), class(x))
   out
 }
 
-##' Coerces objects of type \code{"L_objective"}.
-##'
-##' Objects from the following classes can be coerced to
-##' \code{"L_objective"}: \code{"NULL"}, \code{"numeric"},
-##' \code{"Q_objective"}, and \code{"function"}. The elements of a
-##' \code{"numeric"} vector \eqn{c} are treated as being objective
-##' variable coefficients in \eqn{c^\top x}). Coercing from
-##' \code{"Q_objective"} simply removes the quadratic part from the
-##' objective function. Coercing a \code{"function"} to
-##' \code{"L_objective"} is only possible if the function also
-##' inherits from class \code{"objective"}.
-##' @title Linear Objective Functions
-##' @param x an R object.
-##' @return an object of class \code{"L_objective"} which inherits
-##' from  \code{"Q_objective"} and \code{"objective"}.
-##' @author Stefan Theussl
+##' @rdname L_objective
+##' @param ... further arguments passed to or from other methods
+##' @export
+terms.L_objective <- function( x, ... )
+  list( L = x$L, names = x$names )
+
+
+##  Coerces objects of type \code{"L_objective"}.
+##
+##  Objects from the following classes can be coerced to
+##  \code{"L_objective"}: \code{"NULL"}, \code{"numeric"},
+##  \code{"Q_objective"}, and \code{"function"}. The elements of a
+##  \code{"numeric"} vector \eqn{c} are treated as being objective
+##  variable coefficients in \eqn{c^\top x}). Coercing from
+##  \code{"Q_objective"} simply removes the quadratic part from the
+##  objective function. Coercing a \code{"function"} to
+##  \code{"L_objective"} is only possible if the function also
+##  inherits from class \code{"objective"}.
+##  @title Linear Objective Functions
+##  @param x an R object.
+##  @return an object of class \code{"L_objective"} which inherits
+##  from  \code{"Q_objective"} and \code{"objective"}.
+##  @author Stefan Theussl
+##' @rdname L_objective
 ##' @export
 as.L_objective <- function( x )
     UseMethod( "as.L_objective" )
 
 ##' @noRd
-##' @method as.L_objective L_objective
-##' @S3method as.L_objective L_objective
+##' @export
 as.L_objective.L_objective <- identity
 
 ##' @noRd
-##' @method as.L_objective NULL
-##' @S3method as.L_objective NULL
+##' @export
 as.L_objective.NULL <- function( x )
     L_objective( x )
 
 ##' @noRd
-##' @method as.L_objective numeric
-##' @S3method as.L_objective numeric
+##' @export
 as.L_objective.numeric <- function( x )
-    L_objective( x )
+    L_objective( x, names = names(x) )
 
 ##' @noRd
-##' @method as.L_objective Q_objective
-##' @S3method as.L_objective Q_objective
+##' @export
 as.L_objective.Q_objective <- function( x )
     L_objective( terms(x)[["L"]])
 
 ##' @noRd
-##' @method as.L_objective function
-##' @S3method as.L_objective function
+##' @export
 as.L_objective.function <- function( x ){
     if( !inherits(x, "objective") )
         stop("'x' must be a function which inherits from 'objective'")
-    L_objective( get("L", environment(x)) )
+    L_objective( get("L", environment(x)), get("names", environment(x)) )
 }
 
 
@@ -212,7 +218,7 @@ as.L_objective.function <- function( x ){
 ###############################################################
 
 ##' A quadratic objective function is typically of the form
-##' \eqn{x^\top Qx + c^\top x} where \eqn{Q} is a (sparse) matrix
+##' \deqn{\frac{1}{2} x^\top Qx + c^\top x} where \eqn{Q} is a (sparse) matrix
 ##' defining the quadratic part of the function and \eqn{c} is a
 ##' (sparse) vector of coefficients to the \eqn{n} defining the linear
 ##' part.
@@ -223,25 +229,28 @@ as.L_objective.function <- function( x ){
 ##' \code{"simple_triplet_matrix"} can be supplied.
 ##' @param L a numeric vector of length \eqn{n}, where \eqn{n} is the
 ##' number of objective variables.
+##' @param names an optional character vector giving the names of \eqn{x}
+##'        (row/column names of \eqn{Q}, column names of \eqn{L}).
+##' @param x an R object.
 ##' @return an object of class \code{"Q_objective"} which inherits
 ##' from \code{"objective"}.
 ##' @author Stefan Theussl
 ##' @export
-Q_objective <- function( Q, L = NULL ) {
+Q_objective <- function( Q, L = NULL, names = NULL ) {
     L <- as.L_term(L)
+    ## FIXME: (check if Q ist quadratic!)
     if( !is.null(Q) )
         obj <- .objective( Q    = as.simple_triplet_matrix(0.5 * (Q + t(Q))),
-                           L    = L,
-                           nobj = dim(Q)[1] )
+                           L    = L, names = names,
+                           nobj = dim(Q)[1])
     else
-        obj <- .objective( L = L, nobj = ncol(L) )
+        obj <- .objective( L = L, names = names, nobj = ncol(L) )
     class(obj) <- c( "Q_objective", class(obj) )
     obj
 }
 
 ##' @noRd
-##' @method as.function Q_objective
-##' @S3method as.function Q_objective
+##' @export
 as.function.Q_objective <- function( x, ... ){
   L <- terms(x)[["L"]]
   ## FIXME: shouldn't this already be initialized earlier?
@@ -249,6 +258,7 @@ as.function.Q_objective <- function( x, ... ){
       L <- slam::simple_triplet_zero_matrix(ncol = length(x), nrow = 1L)
 
   Q <- terms(x)[["Q"]]
+  names <- terms(x)[["names"]]
   ## FIXME: what about objective function names?
   out <- function(x)
       structure( c(slam::tcrossprod_simple_triplet_matrix(L, t(x)) + 0.5 * .xtQx(Q, x)), names = NULL )
@@ -256,51 +266,53 @@ as.function.Q_objective <- function( x, ... ){
   out
 }
 
-##' Coerces objects of type \code{"Q_objective"}.
-##'
-##' Objects from the following classes can be coerced to
-##' \code{"Q_objective"}: \code{"function"}, \code{"matrix"}, and
-##' \code{"simple_triplet_matrix"}.
-##' @title Quadratic Objective Function
-##' @param x an R object.
-##' @return an object of class \code{"Q_objective"} which inherits
-##' from \code{"objective"}.
-##' @author Stefan Theussl
+##' @rdname Q_objective
+##' @param ... further arguments passed to or from other methods
+##' @export
+terms.Q_objective <- function( x, ... )
+  list( Q = x$Q, L = x$L, names = x$names )
+
+##  Coerces objects of type \code{"Q_objective"}.
+##
+##  Objects from the following classes can be coerced to
+##  \code{"Q_objective"}: \code{"function"}, \code{"matrix"}, and
+##  \code{"simple_triplet_matrix"}.
+##  @title Quadratic Objective Function
+##  @param x an R object.
+##  @return an object of class \code{"Q_objective"} which inherits
+##  from \code{"objective"}.
+##  @author Stefan Theussl
+##' @rdname Q_objective
 ##' @export
 as.Q_objective <- function( x )
   UseMethod("as.Q_objective")
 
 ##' @noRd
-##' @method as.Q_objective function
-##' @S3method as.Q_objective function
+##' @export
 as.Q_objective.function <- function( x ){
   if( !inherits(x, "objective") )
     stop( "'x' must be a function which inherits from 'objective'" )
-  L_objective( get("L", environment(x)) )
   Q_objective( L = get("L", environment(x)),
-               Q = get("Q", environment(x)) )
+               Q = get("Q", environment(x)),
+               names = get("names", environment(x)) )
 }
 
 ##' @noRd
-##' @method as.Q_objective matrix
-##' @S3method as.Q_objective matrix
+##' @export
 as.Q_objective.matrix <- function( x )
   Q_objective( Q = x)
 
 ##' @noRd
-##' @method as.Q_objective numeric
-##' @S3method as.Q_objective numeric
+##' @export
 as.Q_objective.numeric <- function( x )
   Q_objective( Q = matrix(x))
 
 ##' @noRd
-##' @method as.Q_objective Q_objective
-##' @S3method as.Q_objective Q_objective
+##' @export
 as.Q_objective.Q_objective <- identity
 
 ##' @noRd
-##' @method as.Q_objective simple_triplet_matrix
-##' @S3method as.Q_objective simple_triplet_matrix
+##' @export
 as.Q_objective.simple_triplet_matrix <- function( x )
   Q_objective(Q = x)
 
@@ -317,55 +329,87 @@ as.Q_objective.simple_triplet_matrix <- function( x )
 ##' @param F an R \code{"function"} taking a numeric vector \code{x} of length \eqn{n} as argument.
 ##' @param G an R \code{"function"} returning the gradient at \code{x}.
 ##' @param n the number of objective variables.
+##' @param names an optional character vector giving the names of x.
 ##' @return an object of class \code{"F_objective"} which inherits
 ##' from \code{"objective"}.
 ##' @author Stefan Theussl
 ##' @export
-F_objective <- function( F, n, G = NULL ) {
+F_objective <- function( F, n, G = NULL, names=NULL ) {
     .check_function_for_sanity( F, n )
-    if( !is.null(G) )
-        .check_gradient_for_sanity( G, n )
-    obj <- .objective( F = F, G = G, nobj = n )
+    ##if( !is.null(G) )
+    ##    .check_gradient_for_sanity( G, n )
+    obj <- .objective( F = F, G = G, names = names, nobj = n )
     class( obj ) <- c( "F_objective", class(obj) )
     obj
 }
 
 ##' @noRd
-##' @S3method as.function F_objective
-as.function.F_objective <- function( x, ... )
-  x$F
+##' @export
+as.function.F_objective <- function( x, ... ){
+    F <- x$F
+    G <- x$G
+    nobj <- attr(x, "nobj")
+    names <- terms(x)[["names"]]
+    out <- function(x){
+        F(x)
+    }
+    class(out) <- c(class(out), class(x))
+    out
+}
 
-##' Coerces objects of type \code{"F_objective"}.
-##'
-##' Objects from the following classes can be coerced to
-##' \code{"F_objective"}: \code{"function"}, \code{"L_objective"}, and
-##' \code{"Q_objective"}.
-##' @title General Objective Function
+##' @rdname F_objective
 ##' @param x an R object.
-##' @return an object of class \code{"F_objective"} which inherits
-##' from \code{"objective"}.
-##' @author Stefan Theussl
+##' @param ... further arguments passed to or from other methods
+##' @export
+terms.F_objective <- function( x, ... )
+    list( F = x$F, G = x$G, names = x$names )
+
+##  Coerces objects of type \code{"F_objective"}.
+##
+##  Objects from the following classes can be coerced to
+##  \code{"F_objective"}: \code{"function"}, \code{"L_objective"}, and
+##  \code{"Q_objective"}.
+##  @title General Objective Function
+##  @param x an R object.
+##  @return an object of class \code{"F_objective"} which inherits
+##  from \code{"objective"}.
+##  @author Stefan Theussl
+##' @rdname F_objective
 ##' @export
 as.F_objective <- function( x )
   UseMethod("as.F_objective")
 
 ##' @noRd
-##' @S3method as.F_objective F_objective
+##' @export
 as.F_objective.F_objective <- function( x )
-    identity( x )
+    return( x )
 
 ##' @noRd
-##' @S3method as.F_objective F_objective
+##' @export
 as.F_objective.L_objective <- function( x )
-    F_objective( F = as.function(x), n = length(x), G = G(x) )
+    F_objective( F = as.function(x), n = length(x), G = G(x), names = variable.names(x) )
 
 ##' @noRd
-##' @S3method as.F_objective Q_objective
+##' @export
 as.F_objective.Q_objective <- function( x )
-  F_objective( F = as.function(x), n = length(x), G = G(x) )
+  F_objective( F = as.function(x), n = length(x), G = G(x), names = variable.names(x) )
+
+##' @noRd
+##' @export
+as.F_objective.function <- function( x ){
+    F <- get("F", environment(x))
+    n <- get("nobj", environment(x))
+    G <- get("G", environment(x))
+    names <- get("names", environment(x))
+    if( !inherits(x, "objective") )
+        stop("'x' must be a function which inherits from 'objective'")
+    F_objective( F = x, n = n, G = G, names = names )
+}
 
 .check_function_for_sanity <- function(F, n){
-    ans <- tryCatch( F(rep(n, 0)), error = identity )
+    ## TODO: check if F is really a function and n is an integer, for meaning full
+    ##       error messages!
+    ans <- tryCatch( F(rep.int(0, n)), error = identity )
     if( inherits(ans, "error") )
         stop(sprintf("cannot evaluate function 'F' using 'n' = %d parameters.", n))
     if( !is.numeric(ans) || (length(ans) != 1L) || !is.null(dim(ans)) )
@@ -373,12 +417,47 @@ as.F_objective.Q_objective <- function( x )
     invisible( ans )
 }
 
-.check_gradient_for_sanity <- function(F, n){
-    ans <- tryCatch( F(rep(n, 0)), error = identity )
-    if( inherits(ans, "error") )
-        stop(sprintf("cannot evaluate function 'F' using 'n' = %d parameters.", n))
-    if( !is.numeric(ans) || (length(ans) != n) || !is.null(dim(ans)) )
-        stop("function 'F' does not return a numeric vector of length 'n'.")
-    invisible( ans )
+##' @rdname L_objective
+##' @param object an R object.
+##' @export
+variable.names.L_objective <- function(object, ...) {
+    object$names
 }
+
+##' @rdname Q_objective
+##' @param object an R object.
+##' @export
+variable.names.Q_objective <- function(object, ...) {
+    object$names
+}
+
+##' @rdname F_objective
+##' @param object an R object.
+##' @export
+variable.names.F_objective <- function(object, ...) {
+    object$names
+}
+
+##' @noRd
+##' @export
+variable.names.function <- function(object, ...) {
+    if ( inherits(object, "L_objective"))
+        return(as.L_objective(object)$names)
+    if ( inherits(object, "Q_objective"))
+        return(as.Q_objective(object)$names)
+    if ( inherits(object, "F_objective"))
+        return(as.F_objective(object)$names)
+    NULL
+}
+
+
+## TODO:
+##.check_gradient_for_sanity <- function(F, n){
+##    ans <- tryCatch( F(rep(n, 0)), error = identity )
+##    if( inherits(ans, "error") )
+##        stop(sprintf("cannot evaluate function 'F' using 'n' = %d parameters.", n))
+##    if( !is.numeric(ans) || (length(ans) != n) || !is.null(dim(ans)) )
+##        stop("function 'F' does not return a numeric vector of length 'n'.")
+##    invisible( ans )
+##}
 

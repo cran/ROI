@@ -2,7 +2,7 @@
 ## Package: ROI
 ## File:    utilities.R
 ## Author:  Stefan Theussl
-## Changed: 2011-10-04
+## Changed: 2016-05-20
 ################################################################################
 
 
@@ -24,8 +24,7 @@ function(Q, x)
 }
 
 available_row_sense <- function( )
-  c('<', '<=', "==", ">", ">=")
-
+    c("<", "<=", "==", ">", ">=")
 
 
 ################################################################################
@@ -39,11 +38,12 @@ as.no_V_bounds_OP <- function( x )
     UseMethod("as.no_V_bounds_OP")
 
 ##' @noRd
-##' @S3method as.no_V_bounds_OP no_V_bounds
+##' @export
 as.no_V_bounds_OP.no_V_bounds <- identity
 
+## Assumption: unbounded variables mean that they can be assigned values from -Inf to Inf
 ##' @noRd
-##' @S3method as.no_V_bounds_OP OP
+##' @export
 as.no_V_bounds_OP.OP <- function( x ){
     if( length(bounds(x)) )
         constraints(x) <- rbind( constraints(x),
@@ -68,12 +68,29 @@ as.no_V_bounds_OP.OP <- function( x ){
                                         v = rep(1, length(x$upper$ind)),
                                         nrow = n_obj,
                                         ncol = n_obj )
+
+    ## if lower indices are not all set, we need to set them here
+    ## otherwise the constraints will not be built
+    if( length(x$lower$ind) != n_obj){
+        li <- x$lower$ind
+        lb <- x$lower$val
+        ## FIXME: shouldn't this also include a "reverse" argument?
+        box <- .make_default_box_constraints( n_obj )
+        x$lower$ind <- box$L$i
+        x$lower$val <- box$rhs
+        if( length(li) ){
+            x$lower$val[li] <- lb
+        }
+    }
+
     ## create lhs lower bound
-    lhs_lower <- simple_triplet_matrix( i = x$lower$ind,
-                                        j = x$lower$ind,
-                                        v = rep(1, length(x$lower$ind)),
-                                        nrow = n_obj,
-                                        ncol = n_obj )
+    lhs_lower <-  simple_triplet_matrix( i = x$lower$ind,
+                                         j = x$lower$ind,
+                                         v = rep(1, length(x$lower$ind)),
+                                         nrow = n_obj,
+                                         ncol = n_obj )
+
+
     ## default constraint direction and multiplicator
     d_l <- ">="
     d_u <- "<="
@@ -97,7 +114,7 @@ as.no_V_bounds_OP.OP <- function( x ){
 .make_box_constraints_from_bounds_in_MIP <- function(x, negative = TRUE){
     ## FIXME: we really need an extractor for the number of objective vars
     ##        this only works for sure with linear objectives
-    n_obj <- length(terms(objective(x))$L)
+    n_obj <- length(objective(x))
 
     if(negative) {
         ## if negative TRUE, then solver defaults are:
@@ -175,19 +192,167 @@ as.no_V_bounds_OP.OP <- function( x ){
     }
 }
 
-
-
-################################################################################
-## Plugin and solver naming
-################################################################################
-
-## returns solver name based on package name
-## Convention: ROI.plugin.<solver> => <solver>
-.plugin_prefix <- function()
-    "ROI.plugin"
-
-get_solver_name <- function( pkgname )
-    sub(sprintf("%s.", .plugin_prefix()), "", as.character(pkgname))
-
 get_package_name <- function( solver )
     paste(.plugin_prefix(), as.character(solver), sep = ".")
+
+
+##  -----------------------------------------------------------
+##  equal
+##  =====
+##' @title Compare two Objects
+##' @description The utility function \code{equal} can be used to compare two
+##'   \pkg{ROI} objects and is mainly used for testing purposes.
+##' @param x an \R object to be compared with object y.
+##' @param y an \R object to be compared with object x.
+##' @param ... optional arguments to \code{equal}.
+##' @return \code{TRUE} if \code{x} and \code{y} are equal \code{FALSE} otherwise.
+##' @examples
+##' ## compare numeric values
+##' equal(1e-4, 1e-5, tol=1e-3)
+##' ## L_constraint
+##' lc1 <- L_constraint(diag(1), dir=c("=="), rhs=1)
+##' lc2 <- L_constraint(diag(2), dir=c("==", "<="), rhs=1:2)
+##' equal(lc1, lc1)
+##' equal(lc1, lc2)
+##' @export
+#  -----------------------------------------------------------
+equal <- function(x, y, ...) UseMethod("equal")
+
+##' @rdname equal
+##' @export
+equal.NULL <- function(x, y, ...) {
+    return( is.null(x) & is.null(y) )
+}
+
+##' @rdname equal
+##' @export
+equal.logical <- function(x, y, ...) {
+    if (length(class(x)) != length(class(y))) return(FALSE)
+    if ( any(class(x) != class(y)) ) return(FALSE)
+    if (length(x) != length(y)) return(FALSE)
+    if ( any(is.finite(x) != is.finite(y)) ) return(FALSE)
+    if ( any(x != y) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.integer <- function(x, y, ...) {
+    if (length(class(x)) != length(class(y))) return(FALSE)
+    if ( any(class(x) != class(y)) ) return(FALSE)
+    if (length(x) != length(y)) return(FALSE)
+    if ( any(is.finite(x) != is.finite(y)) ) return(FALSE)
+    if ( any(x != y) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.numeric <- function(x, y, ...) {
+    args <- list(...)
+    if ( is.null(args$tol) ) args$tol <- 1e-5
+    if (length(class(x)) != length(class(y))) return(FALSE)
+    if ( any(class(x) != class(y)) ) return(FALSE)
+    if (length(x) != length(y)) return(FALSE)
+    if ( any(is.finite(x) != is.finite(y)) ) return(FALSE)
+    if ( any( abs(x - y) > args$tol ) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.character <- function(x, y, ...) {
+    if (length(class(x)) != length(class(y))) return(FALSE)
+    if ( any(class(x) != class(y)) ) return(FALSE)
+    if (length(x) != length(y)) return(FALSE)
+    if ( any(is.finite(x) != is.finite(y)) ) return(FALSE)
+    if ( any(x != y) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.list <- function(x, y, ...) {
+    if ( !equal(class(x), class(y)) ) return(FALSE)
+    if (length(x) != length(y)) return(FALSE)
+    for (i in seq_along(x)) {
+        if ( !equal(x[[i]], y[[i]]) ) return(FALSE)
+    }
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.simple_triplet_matrix <- function(x, y, ...) {
+    if ( !equal(class(x), class(y)) ) return(FALSE)
+    if ( !equal(x$nrow, y$nrow) ) return(FALSE)
+    if ( !equal(x$ncol, y$ncol) ) return(FALSE)
+    xo <- order(x$j, x$i)
+    yo <- order(y$j, y$i)
+    if ( !equal(x$i[xo], y$i[yo]) ) return(FALSE)
+    if ( !equal(x$j[xo], y$j[yo]) ) return(FALSE)
+    if ( !equal(x$v[xo], y$v[yo]) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.L_constraint <- function(x, y, ...) {
+    if ( !equal(class(x), class(y)) ) return(FALSE)
+    if ( !equal(attr(x, "names"), attr(y, "names")) ) return(FALSE)
+    if ( !equal(attr(x, "n_L_constraints"), attr(y, "n_L_constraints")) ) return(FALSE)
+    if ( !equal(x$dir, y$dir) ) return(FALSE)
+    if ( !equal(x$rhs, y$rhs) ) return(FALSE)
+    if ( !equal(x$names, y$names) ) return(FALSE)
+    if ( !equal(x$L, y$L) ) return(FALSE)
+    return(TRUE)
+}
+
+##' @rdname equal
+##' @export
+equal.Q_constraint <- function(x, y, ...) {
+    if ( !equal.L_constraint(x, y) ) return(FALSE)
+    if ( !equal(x$Q, y$Q) ) return(FALSE)
+    return(TRUE)
+}
+
+has.Q_constraint <- function(x) {
+    is_Q_constraint_exact <- function(x) ((!is.L_constraint(x)) & is.Q_constraint(x))
+    any(sapply(constraints, is_Q_constraint_exact))
+}
+
+flatten_constraints <- function(x, message=NULL, domain=NULL) {
+    ..X.. <- list()
+    flatten_cons <- function(x) {
+        if ( inherits(x, "constraint") ) {
+            ..X..[[length(..X..) + 1L]] <<- x
+        } else if ( is.list(x) ) {
+            for ( i in seq_along(x) ) {
+                flatten_cons( x[[i]] )
+            }
+        } else {
+            error(which="TYPE_ERROR", message=message, domain=domain, call=NULL)
+        }
+        return(NULL)
+    }
+    flatten_cons(x)
+    return(..X..)
+}
+
+##  -----------------------------------------------------------
+##  vech
+##  ====
+##' @title Half-Vectorization
+##' @description The utility function \code{vech} performs a
+##'   half-vectorization on the given matrices.
+##' @param ... one or more matrices to be half-vectorized.
+##' @return a matrix
+##' @export
+#  -----------------------------------------------------------
+vech <- function(...) {
+    x <- list(...)
+    fun <- function(M) c(M[lower.tri(M, TRUE)])
+    do.call(cbind, lapply(x, fun))
+}
+
+
