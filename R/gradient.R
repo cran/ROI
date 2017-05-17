@@ -8,14 +8,44 @@
 ##' @title Extract Gradient information
 ##' @param x an object used to select the method.
 ##' @param \ldots further arguments passed down to the
-##' \code{\link[numDeriv]{grad}()} function for calculating gradients (only for \code{"F_objective"}).
+##'   \code{\link[numDeriv]{grad}()} function for calculating gradients 
+##'   (only for \code{"F_objective"}).
+##' @details
+##'   By default \pkg{ROI} uses the \code{"grad"} function from the 
+##'   \pkg{numDeriv} package to derive the gradient information.
+##'   An alternative function can be provided via \code{"ROI_options"}.
+##'   For example \code{ROI_options("gradient", myGrad)}
+##'   would tell \pkg{ROI} to use the function \code{"myGrad"} for the
+##'   gradient calculation. The only requirement to the function 
+##'   \code{"myGrad"} is that it has the argument \code{"func"}
+##'   which takes a function with a scalar real result.
 ##' @return a \code{"function"}.
-##' @author Stefan Theussl
+##' @examples
+##' \dontrun{
+##'    f <- function(x) {
+##'        return( 100 * (x[2] - x[1]^2)^2 + (1 - x[1])^2 )
+##'    }
+##'    x <- OP( objective = F_objective(f, n=2L), 
+##'             bounds = V_bound(li=1:2, ui=1:2, lb=c(-3, -3), ub=c(3, 3)) )
+##'    G(objective(x))(c(0, 0)) ## gradient numerically approximated by numDeriv
+##'
+##'
+##'    f.gradient <- function(x) {
+##'        return( c( -400 * x[1] * (x[2] - x[1] * x[1]) - 2 * (1 - x[1]),
+##'                    200 * (x[2] - x[1] * x[1])) )
+##'    }
+##'    x <- OP( objective = F_objective(f, n=2L, G=f.gradient), 
+##'             bounds = V_bound(li=1:2, ui=1:2, lb=c(-3, -3), ub=c(3, 3)) )
+##'    G(objective(x))(c(0, 0)) ## gradient calculated by f.gradient
+##' }
 ##' @export
 G <- function( x, ... )
     UseMethod("G")
 
-## FIXME: HWB suggested (see mail from 25.4.) to allow for using different gradient functions, e.g. in pracma HWB uses the "central difference formula". st: Implemented via ROI_options. sould be documented how this works
+##  HWB suggested (see mail from 25.4.) to allow for using different gradient 
+##      functions, e.g. in pracma HWB uses the "central difference formula". 
+##      st: Implemented via ROI_options. 
+##      #FIXME: should be documented how this works
 ##' @noRd
 ##' @export
 G.F_objective <- function( x, ... ){
@@ -47,7 +77,7 @@ G.Q_objective <- function( x, ... ){
     L <- terms(x)$L
     Q <- terms(x)$Q
     function(x)
-        c(slam::tcrossprod_simple_triplet_matrix(Q, t(x))) + c(L)
+        as.vector(slam::tcrossprod_simple_triplet_matrix(Q, t(x))) + as.vector(L)
 }
 
 
@@ -88,7 +118,7 @@ J.Q_constraint <- function(x, ...) {
         L <- terms(x)[['L']][i,]
         Q <- terms(x)[['Q']][[i]]
         return(function(x) {
-            c(slam::tcrossprod_simple_triplet_matrix(Q, t(x)) + t(L))
+            as.vector(slam::tcrossprod_simple_triplet_matrix(Q, t(x))) + as.vector(L)
         })
     }
     out <- lapply(seq_len(NROW(x$L)), J_fun)
@@ -100,6 +130,42 @@ J.Q_constraint <- function(x, ...) {
 ##' @export
 print.jacobian <- function(x, ...) print(unclass(x), ...)
 
-## TODO: 
-## - J.F_constraint
+##' @noRd
+##' @export
+J.F_constraint <- function(x, ...) {
+    args <- list(...)
+    J_fun <- terms(x)$J
+    if ( is.null(J_fun) ) {
+        fun <- function(func) {
+            args$func <- func
+            J_fun <- function(x) {
+                args$x <- x
+                do.call(ROI_options("jacobian"), args = args)
+            }
+            return(J_fun)
+        }
+        J_fun <- lapply(terms(x)$F, fun)
+        class(J_fun) <- c(class(J_fun), "jacobian")
+    }
+    stopifnot( all(sapply(J_fun, is.function)) )
+    return(J_fun)
+}
+
+##' @noRd
+##' @export
+##  NOTE: returns the jaccobian (not a list of length 1 containing the jaccobian)
+J.function <- function(x, ...) {
+    args <- list()
+    args$func <- x
+    jfun <- function(x) {
+        args$x <- x
+        do.call(ROI_options("jacobian"), args = args)
+    }
+    return(jfun)
+}
+
+
+
+
+
 

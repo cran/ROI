@@ -12,7 +12,7 @@
 ################################################################################
 
 ##  -----------------------------------------------------------
-##  .ROI_plugin_register_solver_control
+##  ROI_plugin_register_solver_control
 ##  ==========================
 ##' @title Register Solver Controls
 ##'
@@ -24,7 +24,7 @@
 ##' @family plugin functions
 ##' @rdname ROI_plugin_register_solver_control
 ##' @export
-.ROI_plugin_register_solver_control <- function( solver, args, roi_control = "X" ){
+ROI_plugin_register_solver_control <- function( solver, args, roi_control = "X" ){
     args <- as.character( args )
     if( length(roi_control) == 1L )
         roi_control <- rep( as.character(roi_control), length(args) )
@@ -42,8 +42,12 @@ ROI_available_solver_controls <- function(){
        "max_iter",         ## INTEGER: maximum number of iterations
        "max_time",         ## INTEGER: maximum time spent solving the problem in milliseconds before abort is triggered
        "tol",              ## NUMERIC: tolerance of termination criterion
+       "abs_tol",          ## NUMERIC: absolute tolerance of termination criterion
+       "rel_tol",          ## NUMERIC: relative tolerance of termination criterion
        "method",           ## CHARACTER: giving the algorithm
-       "start"             ## NUMERIC: a numeric vector giving the start values
+       "start",            ## NUMERIC: a numeric vector giving the start values
+       "nsol_max",         ## INTEGER: a integer giving the maximum number of solutions
+       "dry_run"           ## LOGICAL: turn on/off dry_run
       )
 }
 
@@ -84,16 +88,16 @@ ROI_translate <- function( control, solver ){
 ##' @examples
 ##' \dontrun{
 ##' solver <- "ecos"
-##' .ROI_plugin_add_status_code_to_db(solver, 0L, "ECOS_OPTIMAL", "Optimal solution found.", 0L)
-##' .ROI_plugin_add_status_code_to_db(solver, -7L, "ECOS_FATAL", "Unknown problem in solver.", 1L)
+##' ROI_plugin_add_status_code_to_db(solver, 0L, "ECOS_OPTIMAL", "Optimal solution found.", 0L)
+##' ROI_plugin_add_status_code_to_db(solver, -7L, "ECOS_FATAL", "Unknown problem in solver.", 1L)
 ##' solver <- "glpk"
-##' .ROI_plugin_add_status_code_to_db(solver, 5L, "GLP_OPT", "Solution is optimal.", 0L)
-##' .ROI_plugin_add_status_code_to_db(solver, 1L, "GLP_UNDEF", "Solution is undefined.", 1L)
+##' ROI_plugin_add_status_code_to_db(solver, 5L, "GLP_OPT", "Solution is optimal.", 0L)
+##' ROI_plugin_add_status_code_to_db(solver, 1L, "GLP_UNDEF", "Solution is undefined.", 1L)
 ##' }
 ##' @family plugin functions
 ##' @rdname ROI_plugin_add_status_code_to_db
 ##' @export
-.ROI_plugin_add_status_code_to_db <- function(solver, code, symbol, message, roi_code = 1L){
+ROI_plugin_add_status_code_to_db <- function(solver, code, symbol, message, roi_code = 1L){
     status_db$set_entry(solver = solver,
                         code = code,
                         symbol = symbol,
@@ -122,7 +126,7 @@ available_in_status_codes_db <- function( )
 ################################################################################
 
 ##  -----------------------------------------------------------
-##  .ROI_plugin_register_solver_method
+##  ROI_plugin_register_solver_method
 ##  ==========================
 ##' @title Register Solver Method
 ##'
@@ -134,7 +138,8 @@ available_in_status_codes_db <- function( )
 ##' @family plugin functions
 ##' @rdname ROI_plugin_register_solver_method
 ##' @export
-.ROI_plugin_register_solver_method <- function( signatures, solver, method ){
+ROI_plugin_register_solver_method <- function( signatures, solver, method ){
+    solver_signature_db$set(solver, signatures)
     for( i in 1:nrow(signatures) )
         do.call(solver_db$set_entry, c(as.list(signatures[i,]),
                                              list(solver = solver),
@@ -157,19 +162,20 @@ ROI_required_signature <- function()
 ##'
 ##' @title Make Signatures
 ##' @param ... signature definitions
-##' @return a data.frame with the supported signatures
+##' @return an object of class \code{"ROI_signature"} 
+##'         (inheriting from data.frame) with the supported signatures.
 ##' @examples
 ##' ## ROI_make_LP_signatures
-##' lp_signature <- .ROI_plugin_make_signature( objective = "L",
-##'                                     constraints = "L",
-##'                                     types = c("C"),
-##'                                     bounds = c("X", "V"),
-##'                                     cones = c("free"),
-##'                                     maximum = c(TRUE, FALSE) )
+##' lp_signature <- ROI_plugin_make_signature( objective = "L",
+##'                                            constraints = "L",
+##'                                            types = c("C"),
+##'                                            bounds = c("X", "V"),
+##'                                            cones = c("X"),
+##'                                            maximum = c(TRUE, FALSE) )
 ##' @family plugin functions
 ##' @rdname ROI_plugin_make_signature
 ##' @export
-.ROI_plugin_make_signature <- function(...){
+ROI_plugin_make_signature <- function(...){
     dotargs <- list(...)
     required <- ROI_required_signature() ## names(formals(OP))
     if( length(dotargs) < 2 )
@@ -186,12 +192,12 @@ ROI_required_signature <- function()
     stopifnot( all(names(dotargs) %in% required) )
 
     signature_default <- list(objective="L", constraints="L", types="C", bounds="C",
-                              cones="free", maximum=FALSE)
+                              cones="X", maximum=FALSE)
     set_defaults <- function(name, x) if (is.null(x)) signature_default[[name]] else x
     dotargs <- mapply(set_defaults, names(dotargs), dotargs, SIMPLIFY=FALSE)
 
     dotargs <- lapply(dotargs, function(x) if( is.null(x) ) FALSE else x)
-    .make_signature(do.call(ROI_expand, dotargs))
+    .make_signature(do.call(ROI_expand, dotargs))#
 }
 
 .make_signature <- function( x ){
@@ -210,7 +216,9 @@ ROI_required_signature <- function()
     types <- strsplit(as.character(x[["types"]]), "")
     types <- do.call(rbind, lapply( types, function(t) available_types() %in% t) )
     colnames(types) <- available_types()
-    cbind(x[, colnames(x) != "types"], types)
+    y <- cbind(x[, colnames(x) != "types"], types)
+    class(y) <- c("ROI_signature", class(y))
+    y
 }
 
 
@@ -224,7 +232,7 @@ ROI_required_signature <- function()
 .plugin_prefix <- function()
     "ROI.plugin"
 
-## NOTE: all plugin related functions must be prefixed with ".ROI_plugin_" and
+## NOTE: all plugin related functions must be prefixed with "ROI_plugin_" and
 ##       exported.
 
 ##  -----------------------------------------------------------
@@ -238,7 +246,7 @@ ROI_required_signature <- function()
 ##' @family plugin functions
 ##' @rdname ROI_plugin_get_solver_name
 ##' @export
-.ROI_plugin_get_solver_name <- function( pkgname )
+ROI_plugin_get_solver_name <- function( pkgname )
     sub(sprintf("%s.", .plugin_prefix()), "", as.character(pkgname))
 
 
@@ -269,7 +277,7 @@ canonicalize_status <- function( status, solver ){
 ##' @family plugin functions
 ##' @rdname ROI_plugin_canonicalize_solution
 ##' @export
-.ROI_plugin_canonicalize_solution <- function( solution, optimum, status, solver, message=NULL, ... ) {
+ROI_plugin_canonicalize_solution <- function( solution, optimum, status, solver, message=NULL, ... ) {
     status <- canonicalize_status( status, solver )
     make_OP_solution( solution = solution,
                       objval   = optimum,
@@ -277,3 +285,246 @@ canonicalize_status <- function( status, solver ){
                       solver   = solver,
                       message  = message, ... )
 }
+
+
+
+##  -----------------------------------------------------------
+##  build_equality_constraints
+##  ==========================
+##' @title Build Functional Equality Constraints
+##
+##' @description There exist different forms of functional equality constraints,
+##'              this function transforms the form used in \pkg{ROI} into the
+##'              forms commonly used by \R optimization solvers.
+##' @param x an object of type \code{"OP"}.
+##' @param type an character giving the type of the function to be returned,
+##'        possible values are \code{"eq_zero"} or \code{"eq_rhs"}.
+##'        For more information see Details.
+##' @details There are two types of equality constraints commonly used in \R
+##' \enumerate{
+##' \item{\code{eq\_zero}:}{ \eqn{h(x) = 0} and}
+##' \item{\code{eq\_rhs}:}{ \eqn{h(x) = rhs} .}
+##' }
+##' @note This function only intended for plugin authors.
+##' @return Returns one function, which combines all the functional constraints.
+##' @family plugin functions
+##' @rdname ROI_plugin_build_equality_constraints
+##' @export
+ROI_plugin_build_equality_constraints <- function(x, type=c("eq_zero", "eq_rhs")) {
+    stopifnot(type %in% c("eq_zero", "eq_rhs"))
+    co <- as.F_constraint(constraints(x))
+    if ( any(is.NO_constraint(co), is.null(co)) )
+        return( list(F=NULL, J=NULL) )
+    
+    stopifnot( is.F_constraint(co) )
+    x0 <- rep.int(0, length(objective(x)))
+    b <- co$dir == "=="
+    if ( !any(b) )
+        return( list(F=NULL, J=NULL) )
+    J <- if ( is.null(J) ) NULL else co$J[b]
+    if ( isTRUE(type == "eq_rhs") )
+        return( build_equality_constraints_rhs_x(co$F[b], J, x0) )
+    return( build_equality_constraints_rhs_zero(co$F[b], J, co$rhs[b], x0) )
+}
+
+length_F_constraint <- function(F, x0) {
+    sum(unlist(lapply(F, function(f) length(f(x0)))))
+}
+
+## h(x) == 0
+## return value is h
+build_equality_constraints_rhs_zero <- function(F, J, rhs, x0) {
+    if ( isTRUE(length(F) == 1) ) {
+        J <- if ( is.null(J) ) NULL else J[[1]]
+        if ( all(rhs == 0) ) {
+            return( list(F=F[[1]], J=J) )
+        } else {
+            return( list(F=function(x) (F[[1]](x) - rhs), J=J) )
+        }
+    }
+    if ( is.null(J) ) {
+        jaccobian_fun <- function(x) {
+            do.call(rbind, lapply(J, function(f) f(x)))
+        }    
+    } else {
+        jaccobian_fun <- NULL
+    }
+    if ( all( rhs == 0 ) ) {
+        eq_fun <- function(x) {
+            unlist(lapply(F, function(f) f(x)), FALSE, FALSE)
+        }
+        return( list(F=eq_fun, J=jaccobian_fun) )
+    }
+    ## NOTE: Since we allow single constraints to have length bigger than
+    ##       1 we have to group them.
+    ##       Grouped constraints are all obligated to have the same dir.
+    F_len <- sapply(F, function(f) length(f(x0)))
+    grhs <- mapply(seq, cumsum(c(1L, F_len[-length(F_len)])), cumsum(F_len), SIMPLIFY = FALSE)
+    build_fun <- function(CFUN, rhs) {
+        if ( all(rhs == 0) )
+            return(CFUN)
+        return( function(x) - rhs )
+    }
+    rhs <- lapply(grhs, function(i) rhs[i])
+    F <- mapply(build_fun, F, rhs, SIMPLIFY = FALSE, USE.NAMES = FALSE)
+    eq_fun <- function(x) {
+        unlist(lapply(F, function(f) f(x)), FALSE, FALSE)
+    }
+    return( list(F=eq_fun, J=jaccobian_fun) )
+}
+
+## h(x) == rhs
+## return value is h
+build_equality_constraints_rhs_x <- function(F, J, x0) {
+    if ( isTRUE(length(F) == 1) )
+        J <- if ( is.null(J) ) NULL else J[[1]]
+        return( list(F=F[[1]], J=J) )
+    eq_fun <- function(x) {
+        unlist(lapply(F, function(f) f(x)), FALSE, FALSE)
+    }
+    if ( is.null(J) ) {
+        jaccobian_fun <- function(x) {
+            do.call(rbind, lapply(J, function(f) f(x)))
+        }    
+    } else {
+        jaccobian_fun <- NULL
+    }
+    return( list(F=eq_fun, J=jaccobian_fun) )
+}
+
+## ## Build inequality constraints
+## There are five types of inequality constraints,    
+## 1. **leq_zero**
+## $$ g(x) \leq 0 $$
+## 2. **geq_zero**
+## $$ g(x) \geq 0 $$
+## 3. **leq_rhs**
+## $$ g(x) \leq rhs $$    
+## 4. **geq_rhs**
+## $$ g(x) \geq rhs $$
+## 5. **leq_geq_rhs**
+## $$ lhs \leq g(x) \leq rhs $$
+## Es gibt weniger relevante faelle.
+## c("leq_zero", "geq_zero", "leq_rhs", "geq_rhs", "leq_geq_rhs")
+##  -----------------------------------------------------------
+##  build_inequality_constraints
+##  ============================
+##' @title Build Functional Inequality Constraints
+##
+##' @description There exist different forms of functional inequality constraints,
+##'              this function transforms the form used in \pkg{ROI} into the
+##'              forms commonly used by \R optimization solvers.
+##' @param x an object of type \code{"OP"}.
+##' @param type an character giving the type of the function to be returned,
+##'        possible values are \code{"leq\_zero"} and \code{"geq\_zero"}.
+##'        For more information see Details.
+##' @details There are three types of inequality constraints commonly used in \R
+##' \enumerate{
+##' \item{\code{leq\_zero}:}{ \eqn{h(x) \leq 0} and}
+##' \item{\code{geq\_zero}:}{ \eqn{h(x) \geq 0} and}
+##' \item{\code{leq_geq\_rhs}:}{ \eqn{lhs \geq h(x) \leq rhs} .}
+##' }
+##' @note This function only intended for plugin authors.
+##' @return Returns one function, which combines all the functional constraints.
+##' @family plugin functions
+##' @rdname ROI_plugin_build_inequality_constraints
+##' @export
+ROI_plugin_build_inequality_constraints <- function(x, type=c("leq_zero", "geq_zero")) {
+    stopifnot(type %in% c("leq_zero", "geq_zero"))
+    co <- as.F_constraint(constraints(x))
+    if ( any(is.NO_constraint(co), is.null(co)) )
+        return( list(F=NULL, J=NULL) )
+
+    stopifnot( is.F_constraint(co) )
+    x0 <- rep.int(0, length(objective(x)))
+    ## for now we will treat < equal to <=
+    b <- co$dir %in% c("<", "<=", ">=", ">")
+    if ( !any(b) ) 
+        return( list(F=NULL, J=NULL) )
+
+    F_len <- sapply(co$F, function(f) length(f(x0)))
+    grhs <- mapply(seq, cumsum(c(1L, F_len[-length(F_len)])), cumsum(F_len), SIMPLIFY = FALSE)
+    dir <- lapply(grhs, function(i) co$dir[i])
+    ## <<< TODO: this needs to be checked (we need a check which ensures that 
+    ##           vector valued functions always use the same direction) >>>
+    b <- sapply(dir, function(v) all(v %in% c("<", "<=", ">=", ">"))) 
+    J <- if ( is.null(co$J) ) NULL else co$J[b]
+    if ( isTRUE(type == "leq_zero") )
+        return( build_inequality_constraints(co$F[b], J, co$dir[b], co$rhs[b], x0, c("<", "<=")) )
+    else if ( isTRUE(type == "geq_zero") )
+        return( build_inequality_constraints(co$F[b], J, co$dir[b], co$rhs[b], x0, c(">", ">=")) )
+    ## else leq_geq_rhs
+    stop("due to no use case not implemented yet")
+}
+
+
+build_fun_dir_zero <- function(CFUN, dir, rhs, default_dir=c("<", "<=")) {
+    if ( is.null(CFUN) ) return(NULL)
+    if ( all(rhs == 0) ) {
+        if ( all(dir %in% default_dir) ) {
+            return( CFUN )
+        } 
+        return( function(x) (- CFUN(x)) )
+    }
+    if ( all(dir %in% default_dir) ) {
+        return( function(x) (CFUN(x) - rhs) )
+    }
+    return( function(x) (rhs - CFUN(x)) )
+}
+
+## F <- co$F[b]; dir <- co$dir[b]; rhs <- co$rhs[b]; default_dir <- c(">", ">=")
+## g(x) <= 0
+build_inequality_constraints <- function(F, J, dir, rhs, x0, default_dir) {
+    build_fun <- function(CFUN, dir, rhs) build_fun_dir_zero(CFUN, dir, rhs, default_dir)
+    if ( isTRUE(length(F) == 1) ) {
+        CF <- build_fun(F[[1]], dir, rhs)
+        CJ <- if ( is.null(J) ) J else build_fun(J[[1]], dir, 0)
+        return( list(F=CF, J=CJ) )
+    }
+
+    F_len <- sapply(F, function(f) length(f(x0)))
+    ## group right hand side
+    grhs <- mapply(seq, cumsum(c(1L, F_len[-length(F_len)])), cumsum(F_len), SIMPLIFY = FALSE)
+    rhs <- lapply(grhs, function(i) rhs[i])
+    dir <- lapply(grhs, function(i) dir[i])
+    F <- mapply(build_fun, F, dir, rhs, SIMPLIFY = FALSE, USE.NAMES = FALSE)
+    if ( !is.null(J) ) {
+        J <- mapply(build_fun, J, dir, rep.int(0, length(dir)), SIMPLIFY = FALSE, USE.NAMES = FALSE)
+        jaccobian_fun <- function(x) {
+            do.call(rbind, lapply(J, function(f) f(x)))
+        }
+    } else {
+        jaccobian_fun <- NULL
+    }
+    ineq_fun <- function(x) {
+        unlist(lapply(F, function(f) f(x)), FALSE, FALSE)
+    }
+    return( list(F=ineq_fun, J=jaccobian_fun) )
+}
+
+build_inequality_constraints_leq_geq_rhs <- function(F, dir, rhs, x0) {
+    build_fun <- function(CFUN, dir, rhs) {
+        if ( all(dir %in% c("<", "<=")) ) {
+            return( list(fun=CFUN, lb=rep.int(-Inf, length(rhs)), ub=rhs) )
+        }
+        return( list(fun=CFUN, lb=rhs, ub=rep.int(Inf, length(rhs))) )
+    }
+    
+    if ( isTRUE(length(F) == 1) ) {
+        return( build_fun(F[[1]], dir, rhs) )
+    }
+
+    F_len <- sapply(F, function(f) length(f(x0)))
+    grhs <- mapply(seq, cumsum(c(1L, F_len[-length(F_len)])), cumsum(F_len), SIMPLIFY = FALSE)
+    rhs <- lapply(grhs, function(i) rhs[i])
+    dir <- lapply(dir, function(i) dir[i])
+    X <- mapply(build_fun, F, dir, rhs, SIMPLIFY = FALSE, USE.NAMES = FALSE)
+    F <- lapply(X, "[[", "F")
+    lb <- lapply(X, "[[", "lb")
+    ub <- lapply(X, "[[", "ub")
+    ineq_fun <- function(x) {
+        unlist(lapply(F, function(f) f(x)), FALSE, FALSE)
+    }
+    return( list(fun=ineq_fun, lb=lb, ub=ub) )
+}
+

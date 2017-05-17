@@ -2,11 +2,11 @@
 % Please edit documentation in R/constraints.R
 \name{L_constraint}
 \alias{L_constraint}
+\alias{variable.names.L_constraint}
 \alias{as.L_constraint}
 \alias{is.L_constraint}
 \alias{length.L_constraint}
 \alias{terms.L_constraint}
-\alias{variable.names.L_constraint}
 \title{Linear Constraints}
 \usage{
 L_constraint(L, dir, rhs, names = NULL)
@@ -23,7 +23,7 @@ is.L_constraint(x)
 }
 \arguments{
 \item{L}{a numeric vector of length \eqn{n} (a single constraint)
-or a matrix of dimension \eqn{n \times m}, where \eqn{n} is the
+or a matrix of dimension \eqn{m \times n}, where \eqn{n} is the
 number of objective variables and \eqn{m} is the number of
 constraints. Matrices can be of class
 \code{"simple_triplet_matrix"} to allow a sparse representation of
@@ -57,4 +57,3 @@ is a vector of length \eqn{m}.
 \author{
 Stefan Theussl
 }
-

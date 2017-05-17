@@ -2,9 +2,9 @@
 % Please edit documentation in R/constraints.R
 \name{rbind.constraint}
 \alias{rbind.constraint}
-\title{Linear Constraints}
+\title{Combine Constraints}
 \usage{
-rbind.constraint(..., use.names = FALSE, recursive = FALSE)
+\method{rbind}{constraint}(..., use.names = FALSE, recursive = FALSE)
 }
 \arguments{
 \item{...}{constraints objects to be concatenated.}
@@ -26,9 +26,9 @@ by rows, i.e., putting several constraints together.
 \details{
 The output type is determined from the highest type of the
 components in the hierarchy \cr \code{"L_constraint"} <
-\code{"Q_constraint"} < \code{"F_constraint"}.
+\code{"Q_constraint"} < \code{"F_constraint"} and \cr
+\code{"L_constraint"} < \code{"C_constraint"}.
 }
 \author{
 Stefan Theussl
 }
-

@@ -2,11 +2,11 @@
 % Please edit documentation in R/constraints.R
 \name{Q_constraint}
 \alias{Q_constraint}
+\alias{variable.names.Q_constraint}
 \alias{as.Q_constraint}
 \alias{is.Q_constraint}
 \alias{length.Q_constraint}
 \alias{terms.Q_constraint}
-\alias{variable.names.Q_constraint}
 \title{Quadratic Constraints}
 \usage{
 Q_constraint(Q, L, dir, rhs, names = NULL)
@@ -26,7 +26,7 @@ is.Q_constraint(x)
 part of each constraint.}
 
 \item{L}{a numeric vector of length \eqn{n} (a single constraint)
-or a matrix of dimension \eqn{n \times m}, where \eqn{n} is the
+or a matrix of dimension \eqn{m \times n}, where \eqn{n} is the
 number of objective variables and \eqn{m} is the number of
 constraints. Matrices can be of class
 \code{"simple_triplet_matrix"} to allow a sparse representation of
@@ -65,4 +65,3 @@ is represented by the vector \eqn{rhs}.
 \author{
 Stefan Theussl
 }
-

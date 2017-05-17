@@ -3,13 +3,10 @@
 \name{V_bound}
 \alias{V_bound}
 \alias{as.V_bound}
-\alias{c.V_bound}
 \alias{is.V_bound}
 \title{Objective Variable Bounds}
 \usage{
-V_bound(li, ui, lb, ub, nobj = max(li, ui))
-
-\method{c}{V_bound}(...)
+V_bound(li, ui, lb, ub, nobj)
 
 as.V_bound(x)
 
@@ -50,4 +47,3 @@ V_bound(li=c(1, 5, 10), ui=13, lb=rep.int(-Inf, 3), ub=100, nobj=20)
 \author{
 Stefan Theussl
 }
-

@@ -6,12 +6,9 @@
 ################################################################################
 
 ## Imports
-#' @importFrom "stats" "variable.names"
-#' @importFrom "stats" "setNames"
-#' @importFrom "stats" "na.omit"
-#' @importFrom "stats" "terms"
-#' @importFrom "utils" "str"
-#' @import "slam"
+#' @importFrom stats variable.names setNames na.omit terms aggregate
+#' @importFrom utils str tail download.file
+#' @import slam
 #
 
 ################################################################################
@@ -85,20 +82,11 @@ ROI_solve <- function( x, solver, control = list(), ... ){
     control[names(dots)] <- dots
 
     x <- as.OP( x )
-
-    ## handle the boundary case of no variables.
-    ## #FIXME: @ST: should also consider other
-    ## #NOTE: @FS: The idea is that it sould also be possible to use the solvers
-    ##             to just find a feasible solution.
-    ##if( !length(terms(objective(x))$L) ) {
-    ##    y <- .solve_empty_OP(x)
-    ##    return(y)
-    ##}
-
+    
     methods <- get_solver_methods( OP_signature(x) )
+    sig <- OP_signature( x )
     if ( !length(methods) ) {
         ## CASE: no method found for this signature
-        sig <- OP_signature( x )
         stop( "no solver found for this signature:\n\t",
               paste(paste(names(sig), sig, sep=": "), collapse="\n\t") )
     }
@@ -113,23 +101,33 @@ ROI_solve <- function( x, solver, control = list(), ... ){
             solver <- names( methods )[1]
         }
     } else {
-        SOLVE <- select_solver(x, methods)
+        ## select the solver given on an ordering in ROI_options
+        SOLVE <- select_solver(x, sig, methods) 
         solver <- names( SOLVE )[1]
         SOLVE <- SOLVE[[1]]
     }
 
-    if( length(control) )
-        if( all(!names(ROI_translate(control, solver)) %in% get_solver_controls_from_db(solver)) )
-            warning( sprintf("some control arguments not available in solver '%s'.", solver) )
+    cntrl <- ROI_translate(control, solver)
+    if( length(control) ) {
+        solver_control_names <- get_solver_controls_from_db(solver)    
+        if( !all(names(cntrl) %in% solver_control_names) ) {
+            missing_control_args <- names(cntrl)[which(!names(cntrl) %in% solver_control_names)]
+            k <- min(length(missing_control_args), 2L)
+            warning("the control argument", c(" ", "s ")[k], 
+                    deparse(missing_control_args), c(" is ", " are ")[k],
+                    "not available in solver '", solver, "'")
+        }
+    }
 
     ## TODO: handle default ROI controls separately
     ## FIXME: what if verbose and solver specific verbosity are set at the same time?
     control$verbose <- ifelse( length(control$verbose), control$verbose, FALSE )
     if( control$verbose )
         writeLines( "<SOLVER MSG>  ----" )
-    out <- SOLVE( x, ROI_translate(control, solver) )
+    out <- SOLVE( x, cntrl )
     if( control$verbose )
         writeLines( "<!SOLVER MSG> ----" )
+    ## add the names to the solution
     if ( any(!c(is.null(variable.names(constraints(x))), is.null(variable.names(objective(x))))) ) {
         if ( is.null(variable.names(constraints(x))) ) {
             if ( length(out$solution) == length(variable.names(objective(x))) )
@@ -149,7 +147,7 @@ ROI_solve <- function( x, solver, control = list(), ... ){
 
 which_op_type <- function(x) {
     if ( any(x$C) ) {
-        if ( all(x$cones == "free") ) {
+        if ( all(x$cones == "X") ) {
             if ( all(x[,c('objective', 'constraints')] == "L") ) { ## LP
                 return("LP")
             } else { ## QP
@@ -159,7 +157,7 @@ which_op_type <- function(x) {
             return("CP")
         }
     } else { ## MIXED INTEGER
-        if ( all(x$cones == "free") ) {
+        if ( all(x$cones == "X") ) {
             if ( all(x[,c('objective', 'constraints')] == "L") ) { ## LP
                 return("MILP")
             } else { ## QP
@@ -174,18 +172,19 @@ which_op_type <- function(x) {
 
 ## select_solver gets an optimization problem "x" and the applicable methods
 ## "methods" and returns a solver.
-select_solver <- function(x, methods) {
-    signature <- OP_signature(x)
+select_solver <- function(x, signature, methods) {
     type <- which_op_type(signature)
+    ## select solver by ordering by type
     solver_selection_table <- ROI_options("solver_selection_table")
-    b <- solver_selection_table[[type]] %in% names(methods)
-    if ( sum(b) > 0) {
-        solver <- solver_selection_table[[type]][which(b)[1]]
+    i <- which(solver_selection_table[[type]] %in% names(methods))
+    if ( length(i) > 0 ) {
+        solver <- solver_selection_table[[type]][i[1]]
         return( methods[solver] )
     }
-    b <- solver_selection_table[["default"]] %in% names(methods)
-    if ( sum(b) ) {
-        solver <- solver_selection_table[["default"]][which(b)[1]]
+    ## select solver by default ordering
+    i <- which(solver_selection_table[["default"]] %in% names(methods))
+    if ( length(i) > 0 ) {
+        solver <- solver_selection_table[["default"]][i[1]]
         return( methods[solver] )
     }
     return( methods[1] )
@@ -198,8 +197,7 @@ select_solver <- function(x, methods) {
 ##' @title Solver Tools
 ##' @description Retrieve the names of installed or registered solvers.
 ##' @details
-##'   Whereas \code{ROI_installed_solvers()} and
-##'   \code{ROI_available_solvers()} may list the names of installed
+##'   Whereas \code{ROI_installed_solvers()} may lists the names of installed
 ##'   solvers that do not necessarily work,
 ##'   \code{ROI_registered_solvers()} lists all solvers that can be used
 ##'   to solve optimization problems.
@@ -220,13 +218,79 @@ ROI_installed_solvers <- function( ... ) {
     if ( "lib.loc" %in% names(dots) ) lib.loc <- dots$lib.loc
     else lib.loc <- .libPaths()
     pkgs <- grep( .plugin_prefix(), unlist(lapply(lib.loc, dir)), value = TRUE )
-    structure( pkgs, names = .ROI_plugin_get_solver_name(pkgs) )
+    structure( pkgs, names = ROI_plugin_get_solver_name(pkgs) )
 }
 
-##' @rdname ROI_registered_solvers
+signature_in_df <- function(x, signature) {
+    if ( !is.data.frame(x) )
+        return(FALSE)
+    any(apply(mapply(function(a, b) a == b, signature, x), 1, all))
+}
+
+##' @title Available Solvers
+##' @description ROI_available_solvers returns a data.frame of details corresponding to 
+##'   solvers currently available at one or more repositories. 
+##'   The current list of packages is downloaded over the Internet.
+##' @details
+##'   To get an overview about the available solvers 
+##'   \code{ROI_available_solvers()} can be used.
+##'   If a signature or an object of class \code{"OP"}
+##'   is provided \pkg{ROI} will only return the solvers
+##'   applicable the optimization problem. Note since NLP solver
+##'   are also applicable for LP and QP they will also be listed.
+##'
+##' @param x an object used to select a method. It can be either 
+##'          an object of class \code{"OP"} or an object of class \code{"ROI_signature"}
+##'          or \code{NULL}.
+##' @param method a character string giving the method to be used for downloading files.
+##'        For more information see \code{\link[utils]{download.file}}.
+##' @return a data.frame with one row per package and repository.
+##' @examples
+##' \dontrun{
+##' ROI_available_solvers()
+##' op <- OP(1:2)
+##' ROI_available_solvers(op)
+##' ROI_available_solvers(OP_signature(op))
+##' }
 ##' @export
-ROI_available_solvers <- function( ... ){
-    ROI_installed_solvers( ... )
+ROI_available_solvers <- function( x = NULL, method = getOption("download.file.method")) {
+    UseMethod( "ROI_available_solvers" )
+}
+
+.ROI_available_solvers <- function(method) {
+    url <- "http://roi.r-forge.r-project.org/db/SOLVERS.rds"
+    tmp_folder <- tempdir()
+    dest <- file.path(tmp_folder, "ROI_SOLVERS.rds")
+    z <- tryCatch({download.file(url = url,
+                                 destfile = dest, method = method,
+                                 cacheOK = FALSE, quiet = TRUE, mode = "wb")
+                  }, error = identity)
+
+    if ( inherits(z, "error") )
+        stop("The requested URL 'http://roi.r-forge.r-project.org' was not found.")
+    
+    readRDS(dest)
+}
+
+##' @noRd
+##' @export
+ROI_available_solvers.NULL <- function( x = NULL, method = getOption("download.file.method")) {
+    y <- .ROI_available_solvers(method)
+    y[, -which(colnames(y) == "Signature")]
+}
+
+##' @noRd
+##' @export
+ROI_available_solvers.ROI_signature <- function( x = NULL, method = getOption("download.file.method")) {
+    y <- .ROI_available_solvers(method)
+    i <- which(sapply(y$Signature, signature_in_df, signature = x))
+    y[i, -which(colnames(y) == "Signature")]
+}
+
+##' @noRd
+##' @export
+ROI_available_solvers.OP <- function( x = NULL, method = getOption("download.file.method")) {
+    ROI_available_solvers(OP_signature(x), method)
 }
 
 ## ---------------------------------------------------------
@@ -288,6 +352,6 @@ get_solver_packages_from_db <- function ( ){
     x[ordered]
 }
 
-ROI_expand <- function(...){
+ROI_expand <- function(...) {
     base::expand.grid(..., stringsAsFactors = FALSE)
 }

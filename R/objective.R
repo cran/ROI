@@ -31,16 +31,24 @@ available_objective_classes <- function()
 ## get objective function from problem object
 ## returns a function!
 
-##' Extract the objective function from its argument (typically ROI
-##' objects) and return them.
-##'
-##' The default method assumes that the supplied R object is a list
-##' where the element \code{objective} represents the objective
-##' function. The extractet element is then coerced to a function.
-##' @title Extract Objective Functions
+##  Extract the objective function from its argument (typically ROI
+##  objects) and return them.
+## 
+##  The default method assumes that the supplied R object is a list
+##  where the element \code{objective} represents the objective
+##  function. The extractet element is then coerced to a function.
+##' @title Objective - Accessor and Mutator Functions
+##' @description The \link{objective} of a given optimization problem (\link{OP}) 
+##'     can be accessed or mutated via the method \code{'objective'}.
 ##' @param x an object used to select the method.
+##' @param value an R object.
 ##' @return a function inheriting from \code{"objective"}.
 ##' @author Stefan Theussl
+##' @name objective (Set/Get)
+##' @rdname objective
+##' @examples
+##' x <- OP()
+##' objective(x) <- 1:3
 ##' @export
 objective <- function( x )
     UseMethod( "objective" )
@@ -48,7 +56,20 @@ objective <- function( x )
 ##' @noRd
 ##' @export
 objective.default <- function( x )
-    as.function( x$objective )
+    if (is.null(x$objective)) NULL else as.function( x$objective )
+
+##' @rdname objective
+##' @export objective<-
+'objective<-' <- function( x, value )
+    UseMethod("objective<-")
+
+
+##' @noRd
+##' @export
+'objective<-.OP' <- function( x, value ) {
+    x$objective <- as.objective(value)
+    x
+}
 
 ## Coerces objects of type \code{"objective"}.
 ##
@@ -59,7 +80,7 @@ objective.default <- function( x )
 ##' @rdname objective
 ##' @export
 as.objective <- function( x )
-  UseMethod("as.objective")
+    UseMethod("as.objective")
 
 ##' @noRd
 ##' @export
@@ -70,7 +91,8 @@ as.objective.function <- function( x ){
         return( as.L_objective( x ) )
     if( inherits(x, "F_objective", which = TRUE) == 2 )
         return( as.F_objective( x ) )
-    stop("'x' must be of type L_objective, Q_objective or F_objective, was ", shQuote(typeof(x)))
+    stop("'x' must be of type L_objective, Q_objective or", 
+         " F_objective, was ", shQuote(typeof(x)))
 }
 
 ##' @noRd
@@ -98,10 +120,9 @@ str_default <- function(object, ...) getNamespace("utils")$str.default(object, .
 ##' @noRd
 ##' @export
 str.objective <- function(object, ...) {
-    attributes(object)$nobj <- length(unclass(object))
-    str_default(object)
+    class(object) <- paste(shQuote(class(object)), collapse=" ")
+    str(object)
 }
-
 
 ##' @noRd
 ##' @export
@@ -140,7 +161,10 @@ terms.function <- function( x, ... ){
 ##' @author Stefan Theussl
 ##' @export
 L_objective <- function( L, names = NULL ) {
-    obj <- Q_objective( Q = NULL, L = L, names=names )
+    if ( !is.null(names) ) {
+        stopifnot( is.character(names), any(c(length(L), ncol(L)) == length(names)) )
+    }
+    obj <- Q_objective( Q = NULL, L = L, names = names )
     class( obj ) <- c( "L_objective", class(obj) )
     obj
 }
@@ -237,33 +261,29 @@ as.L_objective.function <- function( x ){
 ##' @author Stefan Theussl
 ##' @export
 Q_objective <- function( Q, L = NULL, names = NULL ) {
-    L <- as.L_term(L)
-    ## FIXME: (check if Q ist quadratic!)
-    if( !is.null(Q) )
+    L <- as.L_term(L, nrow = 1L, ncol = ncol(Q))
+    if( !is.null(Q) ) {
+        stopifnot(nrow(Q) == ncol(Q))
         obj <- .objective( Q    = as.simple_triplet_matrix(0.5 * (Q + t(Q))),
                            L    = L, names = names,
                            nobj = dim(Q)[1])
-    else
+    } else {
         obj <- .objective( L = L, names = names, nobj = ncol(L) )
+    }
     class(obj) <- c( "Q_objective", class(obj) )
     obj
 }
 
 ##' @noRd
 ##' @export
-as.function.Q_objective <- function( x, ... ){
-  L <- terms(x)[["L"]]
-  ## FIXME: shouldn't this already be initialized earlier?
-  if( !length(L) )
-      L <- slam::simple_triplet_zero_matrix(ncol = length(x), nrow = 1L)
-
-  Q <- terms(x)[["Q"]]
-  names <- terms(x)[["names"]]
-  ## FIXME: what about objective function names?
-  out <- function(x)
-      structure( c(slam::tcrossprod_simple_triplet_matrix(L, t(x)) + 0.5 * .xtQx(Q, x)), names = NULL )
-  class(out) <- c(class(out), class(x))
-  out
+as.function.Q_objective <- function( x, ... ) {
+    L <- terms(x)[["L"]]
+    Q <- terms(x)[["Q"]]
+    names <- terms(x)[["names"]]
+    out <- function(x)
+        structure( c(slam::tcrossprod_simple_triplet_matrix(L, t(x)) + 0.5 * .xtQx(Q, x)) )
+    class(out) <- c(class(out), class(x))
+    out
 }
 
 ##' @rdname Q_objective
@@ -323,22 +343,24 @@ as.Q_objective.simple_triplet_matrix <- function( x )
 ## general objectives
 ###############################################################
 
-##' General objective function \eqn{f(x)}to be optimized.
+##' General objective function \eqn{f(x)} to be optimized.
 ##'
 ##' @title General (Nonlinear) Objective Function
 ##' @param F an R \code{"function"} taking a numeric vector \code{x} of length \eqn{n} as argument.
 ##' @param G an R \code{"function"} returning the gradient at \code{x}.
+##' @param H an optional \code{function} holding the Hessian of F.
 ##' @param n the number of objective variables.
 ##' @param names an optional character vector giving the names of x.
 ##' @return an object of class \code{"F_objective"} which inherits
 ##' from \code{"objective"}.
 ##' @author Stefan Theussl
 ##' @export
-F_objective <- function( F, n, G = NULL, names=NULL ) {
+F_objective <- function( F, n, G = NULL, H = NULL, names=NULL ) {
     .check_function_for_sanity( F, n )
     ##if( !is.null(G) )
     ##    .check_gradient_for_sanity( G, n )
-    obj <- .objective( F = F, G = G, names = names, nobj = n )
+    obj <- .objective( F = F, G = G, H = H, 
+                       names = names, nobj = as.integer(n) )
     class( obj ) <- c( "F_objective", class(obj) )
     obj
 }
@@ -348,9 +370,10 @@ F_objective <- function( F, n, G = NULL, names=NULL ) {
 as.function.F_objective <- function( x, ... ){
     F <- x$F
     G <- x$G
+    H <- x$H
     nobj <- attr(x, "nobj")
     names <- terms(x)[["names"]]
-    out <- function(x){
+    out <- function(x) {
         F(x)
     }
     class(out) <- c(class(out), class(x))
@@ -362,7 +385,7 @@ as.function.F_objective <- function( x, ... ){
 ##' @param ... further arguments passed to or from other methods
 ##' @export
 terms.F_objective <- function( x, ... )
-    list( F = x$F, G = x$G, names = x$names )
+    list( F = x$F, n = x$n, G = x$G, H = x$H, names = x$names )
 
 ##  Coerces objects of type \code{"F_objective"}.
 ##
@@ -392,7 +415,7 @@ as.F_objective.L_objective <- function( x )
 ##' @noRd
 ##' @export
 as.F_objective.Q_objective <- function( x )
-  F_objective( F = as.function(x), n = length(x), G = G(x), names = variable.names(x) )
+    F_objective( F = as.function(x), n = length(x), G = G(x), names = variable.names(x) )
 
 ##' @noRd
 ##' @export
@@ -400,15 +423,20 @@ as.F_objective.function <- function( x ){
     F <- get("F", environment(x))
     n <- get("nobj", environment(x))
     G <- get("G", environment(x))
+    H <- get("H", environment(x))
     names <- get("names", environment(x))
     if( !inherits(x, "objective") )
         stop("'x' must be a function which inherits from 'objective'")
-    F_objective( F = x, n = n, G = G, names = names )
+    F_objective( F = x, n = n, G = G, H = H, names = names )
 }
 
-.check_function_for_sanity <- function(F, n){
-    ## TODO: check if F is really a function and n is an integer, for meaning full
-    ##       error messages!
+.check_function_for_sanity <- function(F, n) {
+    is_integer <- function(x) {
+        if ( !is.numeric(x) )
+            return(FALSE)
+        (x - as.integer(x)) < .Machine$double.eps
+    }
+    stopifnot( is.function(F), is_integer(n) )
     ans <- tryCatch( F(rep.int(0, n)), error = identity )
     if( inherits(ans, "error") )
         stop(sprintf("cannot evaluate function 'F' using 'n' = %d parameters.", n))
@@ -450,8 +478,25 @@ variable.names.function <- function(object, ...) {
     NULL
 }
 
+##' @noRd
+##' @export
+print.L_objective <- function(x, ...) {
+    writeLines(sprintf("A linear objective of length %i.", length(x)))
+}
 
-## TODO:
+##' @noRd
+##' @export
+print.Q_objective <- function(x, ...) {
+    writeLines(sprintf("A quadratic objective of length %i.", length(x)))
+}
+
+##' @noRd
+##' @export
+print.F_objective <- function(x, ...) {
+    writeLines(sprintf("A general objective function of length %i.", length(x)))
+}
+
+## <<< TODO: add a sanity check for the gradient! >>>
 ##.check_gradient_for_sanity <- function(F, n){
 ##    ans <- tryCatch( F(rep(n, 0)), error = identity )
 ##    if( inherits(ans, "error") )

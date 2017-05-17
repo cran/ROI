@@ -2,12 +2,12 @@
 % Please edit documentation in R/constraints.R
 \name{as.Q_term}
 \alias{as.Q_term}
-\alias{as.Q_term.NULL}
 \alias{as.Q_term.list}
-\alias{as.Q_term.matrix}
 \alias{as.Q_term.numeric}
+\alias{as.Q_term.matrix}
 \alias{as.Q_term.simple_triplet_matrix}
-\title{Coerce an object to type \code{"Q_term"}.}
+\alias{as.Q_term.NULL}
+\title{Canonicalize the Quadraric Term}
 \usage{
 as.Q_term(x, ...)
 
@@ -27,11 +27,11 @@ as.Q_term(x, ...)
 \item{...}{further arguments}
 }
 \value{
-an object of class \code{"simple_triplet_zero_matrix"}
+an object of class \code{"simple_triplet_matrix"}
 }
 \description{
-The \code{"Q_term"} object represents the quadratic term of the \code{"Q_constraint"}.
-  Objects from the following classes can be coerced to \code{"Q_term"}:
+Canonicalize the quadraric term of a quadratic constraint.
+  Objects from the following classes can be canonicalized:
   \code{"NULL"}, \code{"numeric"}, \code{"matrix"}, \code{"simple_triplet_matrix"}
   and \code{"list"}.
 }
@@ -41,4 +41,3 @@ In the case of \code{lists} \code{"as.Q_term"} is applied to every element
   and \code{"ncol"} which will create a \code{"simple_triplet_zero_matrix"}
   with the specified dimension.
 }
-

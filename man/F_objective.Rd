@@ -2,12 +2,12 @@
 % Please edit documentation in R/objective.R
 \name{F_objective}
 \alias{F_objective}
-\alias{as.F_objective}
 \alias{terms.F_objective}
+\alias{as.F_objective}
 \alias{variable.names.F_objective}
 \title{General (Nonlinear) Objective Function}
 \usage{
-F_objective(F, n, G = NULL, names = NULL)
+F_objective(F, n, G = NULL, H = NULL, names = NULL)
 
 \method{terms}{F_objective}(x, ...)
 
@@ -22,6 +22,8 @@ as.F_objective(x)
 
 \item{G}{an R \code{"function"} returning the gradient at \code{x}.}
 
+\item{H}{an optional \code{function} holding the Hessian of F.}
+
 \item{names}{an optional character vector giving the names of x.}
 
 \item{x}{an R object.}
@@ -35,9 +37,8 @@ an object of class \code{"F_objective"} which inherits
 from \code{"objective"}.
 }
 \description{
-General objective function \eqn{f(x)}to be optimized.
+General objective function \eqn{f(x)} to be optimized.
 }
 \author{
 Stefan Theussl
 }
-

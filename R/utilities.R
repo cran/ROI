@@ -111,9 +111,7 @@ as.no_V_bounds_OP.OP <- function( x ){
 
 ## create box constraints, i.e. lower and upper bounds
 ## when solver doesn't support this feature
-.make_box_constraints_from_bounds_in_MIP <- function(x, negative = TRUE){
-    ## FIXME: we really need an extractor for the number of objective vars
-    ##        this only works for sure with linear objectives
+.make_box_constraints_from_bounds_in_MIP <- function(x, negative = TRUE) {
     n_obj <- length(objective(x))
 
     if(negative) {
@@ -316,6 +314,14 @@ equal.Q_constraint <- function(x, y, ...) {
     return(TRUE)
 }
 
+is_zero_matrix <- function(x) {
+    if ( is.simple_triplet_matrix(x) ) {
+        if ( isTRUE(length(x$v) > 0L) )
+            return(FALSE)
+    }
+    return(TRUE)
+}
+
 has.Q_constraint <- function(x) {
     is_Q_constraint_exact <- function(x) ((!is.L_constraint(x)) & is.Q_constraint(x))
     any(sapply(constraints, is_Q_constraint_exact))
@@ -355,4 +361,38 @@ vech <- function(...) {
     do.call(cbind, lapply(x, fun))
 }
 
+##  -----------------------------------------------------------
+##  eq
+##  ==
+##' @title Replicate \code{"=="}, \code{">="} and \code{"<="} Signs
+##' @description The utility functions \code{eq}, \code{leq} and 
+##'   \code{geq} replicate the signs \code{"=="}, \code{">="} and \code{"<="}
+##'   \code{n} times.
+##' @param n an integer giving the number of times the sign should be repeated.
+##' @examples
+##' eq(3)
+##' @name constraint directions
+##' @rdname signs
+##' @export
+eq <- function(n) rep.int("==", n)
+
+##' @rdname signs
+##' @examples
+##' leq(2)
+##' @export
+leq <- function(n) rep.int("<=", n)
+
+##' @rdname signs
+##' @examples
+##' geq(4)
+##' @export
+geq <- function(n) rep.int(">=", n)
+
+plural_s <- function(condition) {
+    if (condition) "s" else ""
+}
+
+is_string <- function(x) {
+    is.character(x) & (length(x) == 1L)
+}
 
