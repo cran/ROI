@@ -1,6 +1,6 @@
 Package: ROI
-Version: 0.2-5
-Date: 2017-05-17
+Version: 0.2-6
+Date: 2017-05-21
 Title: R Optimization Infrastructure
 Authors@R: c( person("Kurt", "Hornik", role = "aut"),
               person("David", "Meyer", role = "aut"),
@@ -20,7 +20,7 @@ License: GPL-3
 URL: http://R-Forge.R-project.org/projects/roi
 RoxygenNote: 6.0.1
 NeedsCompilation: no
-Packaged: 2017-05-17 17:31:50 UTC; theussl
+Packaged: 2017-05-21 14:36:43 UTC; florian
 Author: Kurt Hornik [aut],
   David Meyer [aut],
   Florian Schwendinger [aut],
@@ -28,4 +28,4 @@ Author: Kurt Hornik [aut],
   Diethelm Wuertz [ctb]
 Maintainer: Stefan Theussl <Stefan.Theussl@R-Project.org>
 Repository: CRAN
-Date/Publication: 2017-05-17 23:15:46 UTC
+Date/Publication: 2017-05-22 11:51:35 UTC
