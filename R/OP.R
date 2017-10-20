@@ -26,15 +26,7 @@
 ##' the objective function, \code{FALSE} (default) means to minimize
 ##' it.
 ##' @param x an R object.
-##' @return A list containing the optimal solution, with the following
-##' components.
-##' \item{solution}{the vector of optimal coefficients}
-##' \item{objval}{the value of the objective function at the optimum}
-##' \item{status}{an integer with status information about the
-##' solution returned: 0 if the optimal solution was found, a non-zero
-##' value otherwise}
-##' \item{msg}{the status code and additional
-##' information about the solution provided by the solver.}
+##' @return an object of class \code{"OP"}.
 ##' @examples
 ##' ## Simple linear program.
 ##' ## maximize:   2 x_1 + 4 x_2 + 3 x_3
@@ -66,16 +58,18 @@
 ##' @export
 OP <- function( objective, constraints = NULL, types = NULL, bounds = NULL,
                 maximum = FALSE ) {
-    x <- vector("list", 5)
-    names(x) <- c("objective", "constraints", "bounds", "types", "maximum")
+    x <- vector("list", 7)
+    names(x) <- c("objective", "constraints", "bounds", "types", "maximum",
+                  "n_of_variables", "n_of_constraints")
     class(x) <- "OP"
 
-    maximum(x)     <- maximum
+    x[["n_of_variables"]] <- NA_integer_
+    x[["n_of_constraints"]] <- NA_integer_
+    maximum(x) <- maximum
     
-    if ( missing(objective) )
-        return(x)
-    
-    objective(x)   <- objective
+    if ( !missing(objective) )
+        objective(x) <- objective
+
     constraints(x) <- constraints
     bounds(x)      <- bounds
     types(x)       <- types
@@ -218,10 +212,13 @@ get_cone_types <- function(x) {
 }
 
 get_varibale_types <- function(x) {
+    aty <- available_types()
     if ( is.null(types(x)) ) {
-        available_types()[1]
+        aty[1]
     } else {
-        paste(unique(types(x)), collapse = "")
+        ## currently the type combinations are c("C", "I", "B", "CI", "CB", "IB", "CIB")
+        ## this not ideal since so we can not just collapse        
+        paste(aty[aty %in% unique(types(x))], collapse = "")
     }
 }
 
@@ -243,7 +240,7 @@ get_bound_type <- function(x) {
 ##'         the optimization problem.
 ##' @export
 OP_signature <- function( x ) {
-    x <- as.OP( x )
+    stopifnot(inherits(x, "OP"))
     ROI_plugin_make_signature( objective = get_objective_class(x),
                                constraints = get_constraint_class(x),
                                types = get_varibale_types(x),

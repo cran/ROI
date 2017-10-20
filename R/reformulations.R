@@ -82,7 +82,7 @@ LPLC.BCI.PSD <- function() {
                                maximum = c(TRUE, FALSE) )
 }
 
-.linearize_BQP <- function(x) {
+bqp_to_lp <- function(x) {
     ## Linearize an all-binary quadratic program
     ##   \sum_{i,j} q_{ij} x_i x_j / 2 + \sum_i c_i x_i
     ## as described e.g. in "Pseudo-Boolean Optimization" by E. Boros
@@ -223,6 +223,8 @@ LPLC.BCI.PSD <- function() {
                  rep.int(-1, npp))
     }
 
+    x$bounds$nobj <- length(s) + length(r)
+
     OP(objective = L_objective(L = c(s, r)),
        constraints = L_constraint(L = mat, dir = dir, rhs = rhs),
        bounds = bounds(x),
@@ -342,18 +344,11 @@ qp_to_socp <- function(x) {
     L1 <- as.matrix(cbind(rbind(0, -F), c(-1, rep.int(0, nrow(F)))))
     rhs <- c(0, as.vector(t(Finv) %*% as.vector(L)))
 
-    ## lc <- L_constraint(L = L1, dir = eq(nrow(L1)), rhs = rhs)
-    ## x$constraints$L <- cbind(x$constraints$L, numeric(x$constraints$L$nrow))
-    ## lc <- rbind(lc, constraints(x))
-    ## n1 <- nrow(constraints(x))
-    ## bo <- c(C_bound(seq_len(nrow(L1)), type = "soc"),
-    ##         C_bound(nrow(L1) + seq_len(n1), type = "zero"),
-    ##         bounds(x), V_bound(li=length(a), lb=-Inf))
     c.L <- constraints(x)$L
     con <- C_constraint(L = rbind(L1, cbind(c.L, numeric(NROW(c.L)))),
                         cones = c(K_soc(NROW(L1)), K_zero(nrow(c.L))),
                         rhs = c(rhs, constraints(x)$rhs))
-    bo <- c(bounds(x), V_bound(li=length(a), lb=-Inf))
+    bo <- c(bounds(x), V_bound(li=1L, lb=-Inf))
 
     if ( is.null(x$types) ) {
         ty <- NULL
@@ -403,10 +398,6 @@ qp_to_socp <- function(x) {
 ##' @export
 ROI_reformulate <- function(x, to, method = NULL) {
     from <- OP_signature(x)
-    is.signature <- function(x) {
-        cn <- c("objective", "constraints", "bounds", "cones", "maximum", "C",  "I", "B")
-        ( is.data.frame(x) & all(colnames(x) == cn) )
-    }
     stopifnot(inherits(x, "OP"), (is.character(to) | is.signature(to)), 
               (is.character(method) | is.null(method)))
 

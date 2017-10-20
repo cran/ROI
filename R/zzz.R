@@ -19,6 +19,10 @@ local({
     }
 })
 
+## Plugins directly distributed with ROI
+ROI_get_included_plugins <- function()
+    sprintf( "%s.%s", .plugin_prefix(), c("nlminb") )
+
 ##' @noRd
 ##' @import registry methods
 NULL
@@ -79,7 +83,7 @@ solver_signature_db <- SolverDatabase()
 reformulation_db <- ReformulationDatabase()
 
 ## Input / Output Tools
-## 
+##
 io_db <- InputOutputDataBase()
 
 ##
@@ -102,6 +106,35 @@ IdGenerator <- function() {
 
 id_generator <- IdGenerator()
 
+register_reformulations <- function() {
+    ##
+    ## BQP to MILP
+    ##
+    lbqp.cite <- paste("Boros, Endre, and Peter L. Hammer.",
+                       '"Pseudo-boolean optimization."',
+                       "Discrete applied mathematics 123.1 (2002): 155-225.",
+                       "\n",
+                       "David Meyer and Kurt Hornik (2017). relations: Data Structures and",
+                       "Algorithms for Relations. R package version 0.6-7.",
+                       collapse = " ")
+
+    lbqp.descr <- paste("Reformulate a binary optimization problem with",
+                        "quadratic objective and linear constraints",
+                        "to a mixed integer problem with linear objective and",
+                        "linear constraints.", collapse = " ")
+    
+    ROI_plugin_register_reformulation(from = QPLC.B(), to = LPLC.BCI(), method_name = "bqp_to_lp", 
+                                      method = bqp_to_lp, description = lbqp.descr, 
+                                      cite = lbqp.cite, author = "")
+
+    ##
+    ## Convex QP to SOCP
+    ##
+    qpsoc.descr <- "Reformulate a convex QP to a SOCP."
+    ROI_plugin_register_reformulation(from = QPLC.BCI(), to = LPLC.BCI.SOC(), method_name = "qp_to_socp", 
+                                      method = qp_to_socp, description = qpsoc.descr, cite = "", author = "")
+}
+
 .onLoad <- function( libname, pkgname ) {
     if( ! "ROI.plugin.nlminb" %in% ROI_registered_solvers() ){
         ## Register solver methods here.
@@ -123,22 +156,8 @@ id_generator <- IdGenerator()
         #                            getFunction( ".solve_QP_nlminb", where = getNamespace(pkgname)) )
     }
 
-    lbqp.cite <- paste("Boros, Endre, and Peter L. Hammer.",
-                       '"Pseudo-boolean optimization."',
-                       "Discrete applied mathematics 123.1 (2002): 155-225.", 
-                       collapse = " ")
-    lbqp.descr <- paste("Reformulate a binary optimization problem with", 
-                        "quadratic objective and linear constraints",
-                        "to a mixed integer problem with linear objective and",
-                        "linear constraints.", collapse = " ")
-
-    reformulation_db$append(QPLC.B(), LPLC.BCI(), "bqp_to_lp", .linearize_BQP,
-                            description = lbqp.descr, cite = lbqp.cite)
-
-    qpsoc.descr <- paste("positive definite quadratic objective,",
-                         "linear constraints to", collapse = " ")
-    reformulation_db$append(QPLC.BCI(), LPLC.BCI.SOC(), "qp_to_socp", qp_to_socp,
-                            description = qpsoc.descr)
+ 
+    register_reformulations()
 
     ## SET DEFAULTS: for the time being 'ROI_NULL' for solving empty
     ## OPs is the default solver
@@ -147,7 +166,7 @@ id_generator <- IdGenerator()
     try(ROI_options("gradient", numDeriv::grad), silent=TRUE)
     try(ROI_options("jacobian", numDeriv::jacobian), silent=TRUE)
 
-    ROI_options("solver_selection_table", 
+    ROI_options("solver_selection_table",
         list(default = c("glpk", "ecos", "cplex", "quadprog", "nlminb"),
              LP   = c("glpk", "ecos", "cplex"),
              QP   = c("quadprog", "cplex", "ipop"),
@@ -175,7 +194,7 @@ id_generator <- IdGenerator()
         solvers <- NULL
     }
 
-    for ( pkgname in solvers ) { 
+    for ( pkgname in solvers ) {
         nmspc <- tryCatch(getNamespace(pkgname), error = identity)
         if( !inherits(nmspc, "error") ) {
             tryCatch({

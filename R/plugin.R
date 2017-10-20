@@ -24,6 +24,8 @@
 ##' @family plugin functions
 ##' @rdname ROI_plugin_register_solver_control
 ##' @export
+## TODO: We should add a field description since it would be nice to 
+##       be able to get the control arguments for each solver plus it's description.
 ROI_plugin_register_solver_control <- function( solver, args, roi_control = "X" ){
     args <- as.character( args )
     if( length(roi_control) == 1L )
@@ -32,6 +34,26 @@ ROI_plugin_register_solver_control <- function( solver, args, roi_control = "X" 
     for( i in seq_along(args) )
         control_db$set_entry( solver, args[i], roi_control[i] )
     invisible( TRUE )
+}
+
+##  -----------------------------------------------------------
+##  ROI_registered_solver_control
+##  =============================
+##' @title Registered Solver Controls
+##'
+##' @description Retrieve the registered solver control arguments.
+##' @param solver a character string giving the solver name.
+##' @return a \code{data.frame} giving the control arguments.
+##' @family plugin functions
+##' @export
+ROI_registered_solver_control <- function(solver) {
+    x <- control_db$get_entries(solver)
+    if ( is.null(x) ) {
+        stop("couldn't find solver '", solver, "'")
+    }
+    control <- as.character(lapply(x, "[[", "control"))
+    roi_control <- as.character(lapply(x, "[[", "roi_control"))
+    data.frame(control = control, roi_control = roi_control, stringsAsFactors = FALSE)
 }
 
 ROI_available_solver_controls <- function(){
@@ -157,6 +179,11 @@ ROI_plugin_register_solver_method <- function( signatures, solver, method ){
 ROI_required_signature <- function()
     c("objective", "constraints", "types", "bounds", "cones", "maximum")
 
+is.signature <- function(x) {
+    cn <- c("objective", "constraints", "bounds", "cones", "maximum", "C",  "I", "B")
+    ( is.data.frame(x) & all(colnames(x) == cn) )
+}
+
 ##' Create a solver signature, the solver signatures are used to indicate
 ##' which problem types can be solved by a given solver.
 ##'
@@ -191,7 +218,7 @@ ROI_plugin_make_signature <- function(...){
     }
     stopifnot( all(names(dotargs) %in% required) )
 
-    signature_default <- list(objective="L", constraints="L", types="C", bounds="C",
+    signature_default <- list(objective="L", constraints="L", types="C", bounds="X",
                               cones="X", maximum=FALSE)
     set_defaults <- function(name, x) if (is.null(x)) signature_default[[name]] else x
     dotargs <- mapply(set_defaults, names(dotargs), dotargs, SIMPLIFY=FALSE)
