@@ -79,11 +79,13 @@
 ##' @author Stefan Theussl
 ##' @export
 ##  -----------------------------------------------------------
-ROI_solve <- function( x, solver, control = list(), ... ){
-
+ROI_solve <- function( x, solver, control = list(), ... ) {
     ## if no second argument is supplied we use the default solver
     if( missing(solver) )
         solver <- ROI_options("default_solver")
+
+    if ( is.null(objective(x)) )
+        stop("objective is missing, with no default")
 
     dots <- list(...)
     control[names(dots)] <- dots
@@ -101,11 +103,17 @@ ROI_solve <- function( x, solver, control = list(), ... ){
         SOLVE <- methods[[ solver ]]
         if ( !is.function(SOLVE) ) {
             ## CASE: applicable solvers found but the solver provided is wrong
-            ##       => issue warning and fallback to the other solver
-            SOLVE <- methods[[1]]
-            warning( "solver '", solver, "' not found or applicable, ROI uses '",
-                     names(methods)[1], "' instead" )
-            solver <- names( methods )[1]
+            ##       => issue warning and fallback to the other solver            
+            if ( isTRUE(solver %in% names(ROI_registered_solvers())) ) {
+                stop("solver '", solver, "' is not applicable to this OP! ",
+                     "Consider using one of the following solver instead:\n",
+                     paste(shQuote(names(methods)), collapse = ", "))
+                
+            } else {
+                stop("solver '", solver, "' is not among the registered solvers! ",
+                     "Consider using one of the following solver instead:\n",
+                      paste(shQuote(names(methods)), collapse = ", "))
+            }
         }
     } else {
         ## select the solver given on an ordering in ROI_options
@@ -229,8 +237,14 @@ ROI_installed_solvers <- function( ... ) {
 }
 
 signature_in_df <- function(x, signature) {
-    if ( !is.data.frame(x) )
+    if ( !is.data.frame(x) | (nrow(x) == 0L) ) {
+        if ( nrow(x) == 0L ) {
+            ## This should never happen but signals that there has happend
+            ## an error during the creation of the signature database.
+            warning("signature with zero rows detected")
+        }
         return(FALSE)
+    }
     any(apply(mapply(function(a, b) a == b, signature, x), 1, all))
 }
 
@@ -350,8 +364,11 @@ get_solvers_from_db <- function( ) {
 
 ## returns package names of available solvers from db
 get_solver_packages_from_db <- function ( ){
-    solvers <- get_solvers_from_db()
-    structure( get_package_name(solvers), names = solvers )
+    d <- data.frame(solvers = solver_db$get_field_entries("solver", unlist = TRUE),
+                    plugins = solver_db$get_field_entries("plugin", unlist = TRUE),
+                    stringsAsFactors = FALSE)
+    d <- unique(d)
+    structure( get_package_name(d$plugins), names = d$solvers )
 }
 
 .sort_types <- function(x){

@@ -68,12 +68,20 @@ objective.default <- function( x )
 ##' @export
 'objective<-.OP' <- function( x, value ) {
     obj <- as.objective(value)
-    nvar <- length(obj)
+    nobj <- length(obj)
     if ( is.na(x[["n_of_variables"]]) ) {
-        x[["n_of_variables"]] <- nvar
+        x[["n_of_variables"]] <- nobj
     } else {
-        stopifnot(isTRUE(x[["n_of_variables"]] == nvar))
+        stopifnot(isTRUE(x[["n_of_variables"]] == nobj))
     }
+
+    if ( is.null(x$bounds) ) {
+        #PLANED-API-CHANGE# x$bounds <- V_bound(ld = -Inf, nobj = nobj)
+        x$bounds <- V_bound(nobj = nobj)
+    } else if ( is.deferred_bound(x$bounds) ) {
+        x$bounds <- V_bound(nobj = nobj)
+    }
+
     x[["objective"]] <- obj
     x
 }

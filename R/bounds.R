@@ -174,29 +174,41 @@ V_bound <- function( li, ui, lb, ub, nobj, ld = 0, ud = Inf, names = NULL) {
     ui <- as.integer(ui)
     lb <- as.double(lb)
     ub <- as.double(ub)
-    if ( length(lb) ) {
-        zero <- lb == 0
-        lb <- lb[!zero]
-        li <- li[!zero]
-    }
-    if ( length(ub) ) {
-        inf <- ub == Inf
-        ub <- ub[!inf]
-        ui <- ui[!inf]
-    }
+    
     if ( ld != 0 ) {
         i <- li
         tmp <- lb
         li <- seq_len(nobj)
         lb <- rep.int(ld, nobj)
         lb[i] <- tmp
+        if ( any(b <- lb == 0) ) {
+            li <- li[!b]
+            lb <- lb[!b]
+        }
+    } else {
+        if ( length(lb) ) {
+            zero <- lb == 0
+            lb <- lb[!zero]
+            li <- li[!zero]
+        }
     }
+
     if ( ud != Inf ) {
         i <- ui
         tmp <- ub
         ui <- seq_len(nobj)
         ub <- rep.int(ud, nobj)
         ub[i] <- tmp
+        if ( any(b <- ub == Inf) ) {
+            ui <- ui[!b]
+            ub <- ub[!b]
+        }
+    } else {
+        if ( length(ub) ) {
+            inf <- ub == Inf
+            ub <- ub[!inf]
+            ui <- ui[!inf]
+        }
     }
 
     ## Sanity checking
@@ -286,6 +298,22 @@ as.list.V_bound <- function( x, ... )
 
 ##' @noRd
 ##' @export
+as.data.frame.V_bound <- function(x, ...) {
+    n_of_variables <- length(x)
+    to_dense <- function(sparse, n, default_value = 0) {
+        dense <- rep(default_value, n)
+        if ( !is.null(sparse$ind) ) 
+            dense[sparse$ind]  <- sparse$val
+        dense
+    }
+    d <- data.frame(lower = to_dense(x$lower, n_of_variables), 
+                    upper = to_dense(x$upper, n_of_variables, Inf), 
+                    stringsAsFactors = FALSE)
+    d
+}
+
+##' @noRd
+##' @export
 print.V_bound <- function(x, ...){
     writeLines( "ROI Variable Bounds:\n" )
 
@@ -370,12 +398,20 @@ bounds.OP <- function( x ) x$bounds
 ##' @noRd
 ##' @export
 'bounds<-.OP' <- function( x, value ) {
-    if ( is.null(value) ) {
+    stopifnot( is.null(value) | inherits(value, "bound") )
+    if ( is.null(value) ) { ## (-Inf, Inf)
         if ( is.na(x[["n_of_variables"]]) ) {
             ## do nothing
-            ## x["bounds"] <- list(NULL)
+            x["bounds"] <- list(NULL)
         } else {
+            #PLANED-API-CHANGE# x$bounds <- V_bound(ld = -Inf, nobj = x[["n_of_variables"]])
             x$bounds <- V_bound(nobj = x[["n_of_variables"]])
+        }
+    } else if ( is.deferred_bound(value) ) { ## [0, Inf)
+        if ( !is.na(x[["n_of_variables"]]) ) {
+            x$bounds <- V_bound(nobj = x[["n_of_variables"]])
+        } else {
+            x$bounds <- value
         }
     } else {
         bounds <- as.V_bound(value)
@@ -391,3 +427,12 @@ bounds.OP <- function( x ) x$bounds
 
 .make_standard_bounds <- function( x )
     NULL
+
+deferred_bound <- function() {
+    structure(list(), class = c("deferred_bound", "bound"))
+}
+
+is.deferred_bound <- function(x) {
+    inherits(x, "deferred_bound")
+}
+

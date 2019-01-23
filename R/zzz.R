@@ -43,6 +43,7 @@ status_db <- add_status_db_schema( status_db )
 ## SOLVER_DB
 add_solver_db_schema <- function( solver_db ){
     solver_db$set_field( "solver",      type = "character", is_key = TRUE )
+    solver_db$set_field( "plugin",      type = "character", is_key = TRUE )
     solver_db$set_field( "objective",   type = "character", validity_FUN = function(x) x %in% names(available_objective_classes()), is_key = TRUE)
     solver_db$set_field( "constraints", type = "character", validity_FUN = function(x) x %in% names(available_constraint_classes()), is_key = TRUE)
     for( type in available_types() )
@@ -135,6 +136,17 @@ register_reformulations <- function() {
                                       method = qp_to_socp, description = qpsoc.descr, cite = "", author = "")
 }
 
+## A try to speed up the loading of the package, but since most of the loading
+## time goes into loading the matrix package using this method could only
+## improve the loding time at 0.04 seconds.
+## get_namespace <- function(name) {
+##     if ( isNamespaceLoaded(name) ) {
+##         getNamespace(name)
+##     } else {
+##         loadNamespace(name, keep.source = FALSE, partial = TRUE)
+##     }
+## }
+
 .onLoad <- function( libname, pkgname ) {
     if( ! "ROI.plugin.nlminb" %in% ROI_registered_solvers() ){
         ## Register solver methods here.
@@ -194,13 +206,13 @@ register_reformulations <- function() {
         solvers <- NULL
     }
 
-    for ( pkgname in solvers ) {
-        nmspc <- tryCatch(getNamespace(pkgname), error = identity)
+    for ( pkg_name in solvers ) {
+        nmspc <- tryCatch(getNamespace(pkg_name), error = identity)
         if( !inherits(nmspc, "error") ) {
             tryCatch({
                 load <- methods::getFunction( ".onLoad", where = nmspc )
-                load( libname = libname, pkgname = pkgname )
-            }, error = function(e) .couldnt_load_pkg(pkgname))
+                load( libname = libname, pkgname = pkg_name )
+            }, error = function(e) .couldnt_load_pkg(pkg_name))
         }
     }
     ## Startup messages
