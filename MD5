@@ -1,9 +1,9 @@
-207bb1f13a35703ddc318faaf259e9fe *DESCRIPTION
+8b5f5fb47d2b5d00f424543a7258ea36 *DESCRIPTION
 2b9c5c58012c44c3aec1d39048bad03a *NAMESPACE
-444c60da8552c2860479c81b19ce6a2f *R/OP.R
+caa9e324c8f34f6c9dd8d30e168ac278 *R/OP.R
 2ef09aaab35471c8a35df431f9932444 *R/bounds.R
-6c45ecf82e6bddb4bf7b0e5d420d912c *R/constraints.R
-a41f699bb07736e96d4b9d037646fc90 *R/doc_data.R
+064355a5ee3f88c36c7dbad0fe3ab7fa *R/constraints.R
+b0d7a94b4e4ed7598cdcaa921b26767a *R/doc_data.R
 579f14b29e3a98bb7ee4fec9840058a2 *R/errors.R
 0b478c2afe006e7e55e6b1ac8b598216 *R/gradient.R
 328e4d3516e551629ce93715744839a3 *R/io_tools.R
@@ -12,7 +12,7 @@ a41f699bb07736e96d4b9d037646fc90 *R/doc_data.R
 6a16b8870985be09ebde468f595ac575 *R/plugin.R
 f1e82650ab612198560a7b4e10959949 *R/plugin_nlminb.R
 2b5d85725025f0825bfef672e6980f7e *R/reformulations.R
-a1542678d38d019b894a5b7c85849222 *R/roi.R
+8e90aa2f40e471330b9f002b5d0deadc *R/roi.R
 9d3cdcdf7f0443b0f4b6b6c7398bcb19 *R/sanitychecks.R
 091925b9fa0dc66d893eb13f10e30615 *R/solution.R
 8536529e708d8c5ce1b6f59c2e34b712 *R/solver.R
@@ -20,6 +20,7 @@ a1542678d38d019b894a5b7c85849222 *R/roi.R
 802bdab888c32563e6c18684297fec7e *R/utilities.R
 b2d948b0af52948da2686ba22496bea0 *R/zzz.R
 0cb69db618cb57d8ad5e5ce7ce767e5f *data/US30.rda
+82da7a4ff93fdbb6469c1eebb0824f55 *inst/CITATION
 48a746d35d437b3926ddb57700841de2 *man/Bounds_Accessor_Mutator.Rd
 7dd1d10bc676c0de130b9de552c0f8ef *man/C_constraint.Rd
 ceff95d1fc0685f8c849c3ad44002d11 *man/F_constraint.Rd
