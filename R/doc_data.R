@@ -7,7 +7,8 @@
 ##' dividend adjusted based on the CRSP methodology.
 ##'
 ##' The selected stocks reflect the DJ 30 Industrial Average Index
-##' members as of 2013-09-20.
+##' members as of 2013-09-20
+##' (downloaded from \code{https://www.quandl.com} which was acquired by \url{https://data.nasdaq.com/}).
 ##'
 ##' The data source is Quandl. Data flagged as "WIKI" in their database is
 ##' public domain.
@@ -15,6 +16,6 @@
 ##' @keywords datasets
 ##' @format A matrix with 30 columns
 ##' (representing stocks) and 180 rows (months).
-##' @source \url{https://www.quandl.com/databases/WIKIP/data}
+##' @source \url{https://data.nasdaq.com/}
 ##' @name US30
 NULL

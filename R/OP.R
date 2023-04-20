@@ -284,3 +284,8 @@ OP_applicable_solver <- function( x ) {
     unname( names(get_solver_methods( OP_signature(x) )) )
 }
 
+
+#' @noRd
+#' @export
+dim.OP <- function(x) c(x[["n_of_constraints"]], x[["n_of_variables"]])
+

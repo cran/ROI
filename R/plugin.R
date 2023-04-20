@@ -120,11 +120,25 @@ ROI_translate <- function( control, solver ){
 ##' @rdname ROI_plugin_add_status_code_to_db
 ##' @export
 ROI_plugin_add_status_code_to_db <- function(solver, code, symbol, message, roi_code = 1L){
+    checks <- list(solver = check_character(solver, min.chars = 1L, any.missing = FALSE, len = 1L),
+                   code = check_integerish(code, any.missing = FALSE, len = 1L),
+                   symbol = check_character(symbol, min.chars = 1L, any.missing = FALSE, len = 1L),
+                   message = check_character(message, min.chars = 0L, any.missing = FALSE, len = 1L),
+                   roi_code = check_integerish(roi_code, any.missing = FALSE, len = 1L))
+    is_ok <- sapply(checks, isTRUE)
+    if (any(!is_ok)) {
+        msg <- sprintf("in 'ROI_plugin_add_status_code_to_db' adding the solver with code '%s' %s",
+                       as.character(code), "raised by the input check, check the following arguments")
+        for (i in which(!is_ok)) {
+           msg <- c(msg, sprintf("  - '%s': %s", names(checks)[i], checks[[i]]))
+        }
+        stop(paste(msg, collapse = "\n"))
+    }
     status_db$set_entry(solver = solver,
-                        code = code,
+                        code = as.integer(code),
                         symbol = symbol,
                         message = message,
-                        roi_code = roi_code)
+                        roi_code = as.integer(roi_code))
     ## return NULL else it returns the registry as list
     invisible(NULL)
 }
@@ -161,13 +175,13 @@ available_in_status_codes_db <- function( )
 ##' @family plugin functions
 ##' @rdname ROI_plugin_register_solver_method
 ##' @export
-ROI_plugin_register_solver_method <- function( signatures, solver, method , plugin = solver ) {
+ROI_plugin_register_solver_method <- function(signatures, solver, method, plugin = solver) {
     solver_signature_db$set(solver, signatures)
-    for ( i in seq_len(nrow(signatures)) )
-        do.call(solver_db$set_entry, c(as.list(signatures[i,]),
-                                       list(solver = solver, plugin = plugin, FUN = method)))
-
-    invisible( TRUE )
+    for (i in seq_len(nrow(signatures))) {
+        kwargs <- c(as.list(signatures[i,]), list(solver = solver, plugin = plugin, FUN = method))
+        do.call(solver_db$set_entry, kwargs)
+    }
+    invisible(TRUE)
 }
 
 
@@ -282,9 +296,11 @@ ROI_plugin_get_solver_name <- function( pkgname )
 ## CANONICALIZER
 ################################################################################
 
-canonicalize_status <- function( status, solver ){
+canonicalize_status <- function(status, solver) {
+    assert(check_character(solver, min.chars = 1L, any.missing = FALSE, len = 1L),
+           check_integerish(status, any.missing = FALSE, len = 1L), combine = "and")
     msg <- get_status_message_from_db( solver, status )
-    list( code = msg$roi_code, msg = msg )
+    list(code = msg$roi_code, msg = msg)
 }
 
 ##  -----------------------------------------------------------

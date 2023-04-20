@@ -9,6 +9,7 @@
 #' @importFrom stats variable.names setNames na.omit terms aggregate
 #' @importFrom utils str tail download.file
 #' @import slam
+#' @import checkmate
 #
 
 ################################################################################
@@ -381,6 +382,54 @@ get_solver_packages_from_db <- function ( ){
     x[ordered]
 }
 
+
 ROI_expand <- function(...) {
     base::expand.grid(..., stringsAsFactors = FALSE)
+}
+
+
+ROI_is_registered <- function(solver) {
+    isTRUE(solver %in% names(ROI::ROI_registered_solvers()))
+}
+
+
+ROI_is_installed <- function(solver) {
+    isTRUE(solver %in% names(ROI::ROI_installed_solvers()))
+}
+
+
+#' Require Solver
+#'
+#' Loads the specified solver and registers it in an internal data base.
+#' A request to load an already loaded solver has no effect.
+#'
+#' @param solver a character string giving the solver name.
+#' @param warn an integer giving if the warn level.
+#'  For \code{warn = -1} the warning is ignored. For \code{warn = 0}
+#'  the warning is stored and printed later. For \code{warn = 1} the
+#'  warning is printed immediately. For \code{warn = 2} the
+#'  warning is turned into an error. Default is \code{warn = 0}.
+#'
+#' @return Returns \code{TRUE} on success otherwise \code{FALSE}.
+#' @export
+ROI_require_solver <- function(solver, warn = 0) {
+    checkmate::assert_character(solver, len = 1L, any.missing = FALSE)
+    checkmate::check_integerish(warn, any.missing = FALSE, len = 1L)
+    warn <- as.integer(warn)
+    if (ROI_is_registered(solver)) return(invisible(TRUE))
+    # The gsub is needed for e.g., "nloptr.lbfgs"
+    plugin_name <- sprintf("ROI.plugin.%s", gsub("\\..*", "", solver))
+    if (ROI_is_installed(solver)) {
+        res <- requireNamespace(plugin_name, quietly = TRUE)
+        return(invisible(res))
+    }
+    if (warn >= 2L) {
+        stop(sprintf("'%s' can not be found among the installed solvers ", plugin_name),
+             "(in `ROI_installed_solvers()`) please make sure that is installed.")
+    } else if (warn >= 0L) {
+        warning(sprintf("'%s' can not be found among the installed solvers ", plugin_name),
+                "(in `ROI_installed_solvers()`) please make sure that is installed.",
+                immediate. = isTRUE(warn == 1L))
+    }
+    return(invisible(FALSE))
 }

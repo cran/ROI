@@ -120,7 +120,7 @@ constraints.OP <- function( x ){
 ##' @noRd
 ##' @export
 'constraints<-.OP' <- function( x, value ) {
-    if ( is.null(value) ) {
+    if (is.null(value)) {
         if ( !is.na(x[["n_of_variables"]]) ) {
             x[["constraints"]] <- NO_constraint(x[["n_of_variables"]])
         }
